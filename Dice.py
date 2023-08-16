@@ -128,15 +128,39 @@ async def buy(ctx):
 
 @shop.command()
 async def daily(ctx):
-    await ctx.message.reply('**Manutenção**') 
+    user_id = ctx.author.id
 
+    global conn
+    sql  = f"""select
+m.moedas,
+u.id
+from bot.tbuser u
+join bot.tbmoeda m on m.id_usuario = u.id
+where u.id_discord = {user_id}"""
+    
+    c = conn.cursor()
+    c.execute(sql)
+    r = c.fetchall()
 
+    moedas = r[0][0]
+    daily = random.randrange(5,31)
+    moedasDaily = moedas + daily
+    sql = f"""update bot.tbmoeda set moedas = {moedasDaily}
+where id_usuario = {r[0][1]}
+
+"""
+    c = conn.cursor()
+    c.execute(sql)
+    conn.commit()
+    
+    await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
+    
 
 
 @shop.command()
 async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
     if nome is None or preco is None or estoque is None or desc is None:    
-        await ctx.message.reply('Fornceça o item, o preço, a quantidade e a descrição!')
+        await ctx.message.reply('Forneça o item, o preço, a quantidade e a descrição!')
         return
 
     global conn
@@ -160,10 +184,13 @@ async def inv(ctx):
     global conn
     sql = f"""select
 u.id_discord, 
-i.nome, ui.quantidade
+i.nome,
+ui.quantidade,
+m.moedas
 from bot.tbuser u
 join bot.tbuserinv ui on ui.id_user = u.id
 join bot.tbitens i on i.id = ui.id_item
+join bot.tbmoeda m on m.id_usuario = u.id
 where u.id_discord = {user_id}""" 
 
     c = conn.cursor() 
@@ -179,7 +206,7 @@ where u.id_discord = {user_id}"""
     else:
 
         embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
-    embed.add_field(name=''"- Moedas: Arrumar", value='Vamos às compras!?'+f"", inline=False)
+    embed.add_field(name=''"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
     await ctx.send(embed=embed)
     return
 
