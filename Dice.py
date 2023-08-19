@@ -4,7 +4,15 @@ import random
 import asyncio
 import re
 from datetime import datetime, timedelta
+import mysql.connector 
 
+conn = mysql.connector.connect(
+    user="root",
+    password="3141592",
+    host="127.0.0.1",
+    database="bot",
+    auth_plugin='mysql_native_password'
+)
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -96,6 +104,7 @@ async def delete(ctx, item=None):
     if item is None:
         await ctx.message.reply('Forneça um item para deletar!')
         return
+    
     global conn
     sql = f"delete from bot.tbitens where nome = '{item}'"
     c = conn.cursor() 
@@ -133,6 +142,8 @@ async def daily(ctx):
     c.execute(sql)
     r = c.fetchall()
 
+    print('portno')
+
     if r[0][2] == 1:
         await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {r[0][3]}")
         return
@@ -140,18 +151,24 @@ async def daily(ctx):
     moedas = r[0][0]
     daily = random.randrange(5,31)
     moedasDaily = moedas + daily
+
+    print('hentai')
+
     sql = f"""
         update 
         bot.tbmoeda 
         set moedas = {moedasDaily},
-        cooldown = {datetime.date}
+        cooldown = {datetime.now()(}
         where id_usuario = {r[0][1]}
     """
+    print(datetime.now())
+    print('codigo de viado')
 
     c = conn.cursor()
     c.execute(sql)
     conn.commit()
     
+    print('bummmmmmmmmmm')
     await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
     
 
