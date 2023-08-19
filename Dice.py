@@ -116,10 +116,21 @@ async def delete(ctx, item=None):
 
 
 @shop.command()
-async def buy(ctx):
+async def buy(ctx, nome, quantidade):
+    user_id = ctx.author.id
 
-    await ctx.message.reply('**Manutenção**') 
+    global conn
+    sql = f"""select 
+u.id_discord,
+m.moedas,
+(select i.preco from bot.tbitens i where i.nome like '{nome}')as preco
+from bot.tbuser u
+join bot.tbmoeda m on m.id_usuario = u.id
+where u.id_discord = {user_id}"""
 
+    c = conn.cursor()
+    c.execute(sql)
+    r = c.fetchall()
 
 @shop.command()
 async def daily(ctx):
