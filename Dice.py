@@ -292,33 +292,13 @@ gifs_beijos = [
     "https://i.pinimg.com/originals/4d/67/84/4d6784bcad9589f99efd63f9474f841b.gif"
 ]
 
-
 @bot.command()
-async def som(ctx, num1: float, num2: float):
-    resultado = num1 + num2
-    await ctx.send(f"{num1} + {num2} = {resultado}")
-    return 
-@bot.command()
-async def sub(ctx, num1: float, num2: float):
-    resultado = num1 - num2
-    await ctx.send(f"{num1} - {num2} = {resultado}")
-    return 
-
-@bot.command()
-async def mult(ctx, num1: float, num2: float):
-    resultado = num1 * num2
-    await ctx.send(f"{num1} . {num2} = {resultado}")
-    return 
-
-
-@bot.command()
-async def div(ctx, num1: float, num2: float):
-    if num2 == 0:
-        await ctx.send("0")
-    else:
-        resultado = num1 / num2
-        await ctx.send(f"{num1} / {num2} = {resultado}")
-    return 
+async def calc(ctx, *, expression):
+    try:
+        result = eval(expression)
+        await ctx.send(f"Resultado: {result}")
+    except Exception as erro:
+        print(f"Erro ao calcular: {e}")
 
 @bot.command()
 async def beijo(ctx, member: discord.Member=None):
