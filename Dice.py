@@ -142,33 +142,32 @@ async def daily(ctx):
     c.execute(sql)
     r = c.fetchall()
 
-    print('portno')
 
     if r[0][2] == 1:
-        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {r[0][3]}")
+        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {str(r[0][3])[0:10]}")
         return
 
     moedas = r[0][0]
     daily = random.randrange(5,31)
     moedasDaily = moedas + daily
 
-    print('hentai')
+
 
     sql = f"""
         update 
         bot.tbmoeda 
         set moedas = {moedasDaily},
-        cooldown = {str(datetime.now()).replace("-",".")}
+        cooldown = '{str(datetime.now()).replace("-",".")[0:10].strip()}'
         where id_usuario = {r[0][1]}
     """
-    print(datetime.now())
-    print('codigo de viado')
+
+
 
     c = conn.cursor()
     c.execute(sql)
     conn.commit()
     
-    print('bummmmmmmmmmm')
+  
     await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
     
 
