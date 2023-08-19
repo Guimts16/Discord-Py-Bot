@@ -53,6 +53,7 @@ async def help(ctx):
         embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
         embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
         embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+        embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
         embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
         embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
         embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
@@ -296,7 +297,7 @@ gifs_beijos = [
 async def calc(ctx, *, expression):
     try:
         result = eval(expression)
-        await ctx.send(f"Resultado: {result}")
+        await ctx.send(f"{expression} = {result}")
     except Exception as erro:
         print(f"Erro ao calcular: {e}")
 
@@ -602,6 +603,7 @@ async def ajuda(ctx):
     embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
     embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
     embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+    embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
     embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
     embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
     embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
