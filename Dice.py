@@ -19,14 +19,9 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 canal_destino = None
 active_countdowns = {} 
 bot_ativo = True
-is_owner = 617362818299199498 or 1107455729025171596
 intents.typing = False
 intents.presences = False
 
-def is_owner():
-    async def predicate(ctx):
-        return ctx.message.author.id == ctx.guild.owner_id
-    return commands.check(predicate)
 
 bot.remove_command('help')
 
@@ -105,7 +100,6 @@ from bot.tbitens i"""
     await ctx.send(embed=embed)
 
 @shop.command()
-@is_owner()
 async def delete(ctx, item=None):
     if item is None:
         await ctx.message.reply('Forneça um item para deletar!')
@@ -189,7 +183,7 @@ ui.quantidade,
 m.moedas
 from bot.tbuser u
 join bot.tbuserinv ui on ui.id_user = u.id
-join bot.tbitens i on i.id = ui.id_item
+left join bot.tbitens i on i.id = ui.id_item
 join bot.tbmoeda m on m.id_usuario = u.id
 where u.id_discord = {user_id}""" 
 
@@ -222,10 +216,6 @@ async def on_command_error(ctx, error):
     else:
         print(f'Erro durante a execucao do comando: {error}')
 
-def is_creator():
-    def predicate(ctx):
-        return ctx.author.id == 617362818299199498
-    return commands.check(predicate)
 
 ship_results = {}
     
@@ -339,7 +329,6 @@ async def banana(ctx, channel_name=None):
     new_channel = await category.create_text_channel(channel_name)
 
 @bot.command()
-@is_creator()
 async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
     if arg1 is None or arg2 is None or novo_percentual is None:
         await ctx.message.reply("Por favor, forneça os argumentos necessários para a alteração!")
@@ -396,20 +385,13 @@ async def cancelar(ctx):
         await ctx.send("Não há nenhuma contagem em andamento.")
 
 @bot.command()
-@is_owner()
 async def off(ctx):
-    if ctx.author.id == is_owner:
-        await ctx.message.reply('Bot desativado. Use !on para reativá-lo.') 
-    else:
-        await ctx.send("Você não tem permissão para executar este comando.")
-
     global bot_ativo
     if isinstance(ctx.channel, discord.channel.DMChannel) or ctx.author.guild_permissions.administrator:
         bot_ativo = False
 
 
 @bot.command()
-@is_creator()
 async def on(ctx):
     global bot_ativo
     if isinstance(ctx.channel, discord.channel.DMChannel) or ctx.author.guild_permissions.administrator:
