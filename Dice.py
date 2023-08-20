@@ -158,7 +158,7 @@ async def daily(ctx):
         update 
         bot.tbmoeda 
         set moedas = {moedasDaily},
-        cooldown = {datetime.now()(}
+        cooldown = {str(datetime.now()).replace("-",".")}
         where id_usuario = {r[0][1]}
     """
     print(datetime.now())
