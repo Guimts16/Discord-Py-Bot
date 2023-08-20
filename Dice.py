@@ -4,20 +4,13 @@ import random
 import asyncio
 import re
 from datetime import datetime, timedelta
-import mysql.connector 
-
-conn = mysql.connector.connect(
-    user="root",
-    password="3141592",
-    host="127.0.0.1",
-    database="bot",
-    auth_plugin='mysql_native_password'
-)
+import Database as db
+import shop 
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 canal_destino = None
-active_countdowns = {} 
+active_countdowns = {}
 bot_ativo = True
 intents.typing = False
 intents.presences = False
@@ -25,10 +18,21 @@ intents.presences = False
 
 bot.remove_command('help')
 
+
+def createEmbedTitle(titulo = "", descricao = "", cor = 0x2b2d31):
+    return discord.Embed(title=titulo, description=descricao, color=cor)
+    
+def EmbedAddField(embed, nome = "", valor = ""):
+    embed.add_field(name=nome, value=valor, inline=False)
+
+def EmbedAddFooter(embed, descricao = ""):
+    embed.set_footer(text=descricao)
+
 @bot.event
 async def on_ready():
     print(f'LOGADO EM {bot.user}')
     await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="lohgui"))
+
 
 @bot.event
 async def on_message(message):
@@ -46,58 +50,70 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+
 @bot.command(name='help', with_app_command=True)
 async def help(ctx):
-        embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-        embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
-        embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
-        embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
-        embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
-        embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
-        embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
-        embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
-        embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
-        embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
-        embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
-        embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
-        embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
-        embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
-        embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-        await ctx.message.reply(embed=embed)
-
+    embed = discord.Embed(
+        title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
+    embed.add_field(name='!r <XdY>, ou !roll',
+                    value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
+    embed.add_field(name='!escolhe (opção1) (opção2)',
+                    value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
+    embed.add_field(name='!ppt <pedra,pepel ou tesoura>',
+                    value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
+    embed.add_field(
+        name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+    embed.add_field(name='!contagem (iniciar)(cancelar)',
+                    value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
+    embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
+    embed.add_field(
+        name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
+    embed.add_field(
+        name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
+    embed.add_field(name='!anagrama',
+                    value='Um joguinho de anagrama, vai.', inline=False)
+    embed.add_field(name='!ship (nome) (nome)',
+                    value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
+    embed.add_field(
+        name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
+    embed.add_field(
+        name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
+    embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
+    embed.set_footer(
+        text='Para mais informações, manda mensagem para o Gui aí.')
+    await ctx.message.reply(embed=embed)
 
 
 @bot.group()
 async def shop(ctx):
-        if ctx.invoked_subcommand is None:
-            embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-            embed.add_field(name='!shop buy', value='Fazer suas compras', inline=False)
-            embed.add_field(name='!shop ver', value='Para ver os itens diponiveis', inline=False)
-            embed.add_field(name='!shop daily', value='Pegue suas recompensas diarias para não ficar zerado!', inline=False)
-            embed.add_field(name='!inv', value='Olhe seu inventario!', inline=False)
-            embed.set_footer(text='Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!')
-            await ctx.message.reply(embed=embed)
-            return
+    if ctx.invoked_subcommand is None:
+        embed = createEmbedTitle("Ajuda", 'Aqui está a lista de comandos disponíveis: ', 0x740000)
+
+        for k, v in shop.shop().iteritems():
+            EmbedAddField(embed, k, v)
+
+        EmbedAddFooter(embed, "Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!")
+
+        await ctx.message.reply(embed=embed)
+        return
+
 
 @shop.command()
 async def ver(ctx):
-    global conn
-    sql = """select
-i.nome, i.preco, i.estoque, i.descricao
-from bot.tbitens i""" 
-    c = conn.cursor() 
-    c.execute(sql)
-    r = c.fetchall()
+    r = db.SelectItens()
 
     embed = discord.Embed(title='LOJINHA', description='ITENS DISPONÍVEIS', color=0x740000)
+
     if len(r) > 0:
-            
         for tupla in r:
-            
-            embed.add_field(name=tupla[0]+f" - Estoque: {tupla[2]}", value=tupla[3]+f" - Preço: {tupla[1]} moedas de prata!", inline=False)
+            embed.add_field(
+                name=tupla[0]+f" - Estoque: {tupla[2]}", 
+                value=tupla[3]+f" - Preço: {tupla[1]} moedas de prata!", inline=False)
     else:
         embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
+
     await ctx.send(embed=embed)
+
 
 @shop.command()
 async def delete(ctx, item=None):
@@ -106,18 +122,16 @@ async def delete(ctx, item=None):
         return
     global conn
     sql = f"delete from bot.tbitens where nome = '{item}'"
-    c = conn.cursor() 
+    c = conn.cursor()
     c.execute(sql)
     conn.commit()
     await ctx.message.reply(f'``{item}`` deletado com sucesso!')
 
 
-
-
 @shop.command()
 async def buy(ctx):
 
-    await ctx.message.reply('**Manutenção**') 
+    await ctx.message.reply('**Manutenção**')
 
 
 @shop.command()
@@ -125,19 +139,19 @@ async def daily(ctx):
     user_id = ctx.author.id
 
     global conn
-    sql  = f"""select
+    sql = f"""select
 m.moedas,
 u.id
 from bot.tbuser u
 join bot.tbmoeda m on m.id_usuario = u.id
 where u.id_discord = {user_id}"""
-    
+
     c = conn.cursor()
     c.execute(sql)
     r = c.fetchall()
 
     moedas = r[0][0]
-    daily = random.randrange(5,31)
+    daily = random.randrange(5, 31)
     moedasDaily = moedas + daily
     sql = f"""update bot.tbmoeda set moedas = {moedasDaily}
 where id_usuario = {r[0][1]}
@@ -146,31 +160,32 @@ where id_usuario = {r[0][1]}
     c = conn.cursor()
     c.execute(sql)
     conn.commit()
-    
+
     await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
-    
 
 
 @shop.command()
 async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
-    if nome is None or preco is None or estoque is None or desc is None:    
+    if nome is None or preco is None or estoque is None or desc is None:
         await ctx.message.reply('Forneça o item, o preço, a quantidade e a descrição!')
         return
 
     global conn
     sql = f"insert into bot.tbitens(nome, preco, estoque, descricao) values('{str(nome)}',{int(preco)}, {int(estoque)}, '{str(desc)}')"
 
-    c = conn.cursor() 
+    c = conn.cursor()
     c.execute(sql)
     conn.commit()
-    
+
     await ctx.message.reply('Item adicionado')
+
 
 @bot.command()
 async def myid(ctx):
     user_id = ctx.author.id
     await ctx.send(f"Seu ID de usuário é: {user_id}")
-    
+
+
 @bot.command()
 async def inv(ctx):
     user_id = ctx.author.id
@@ -185,24 +200,29 @@ from bot.tbuser u
 join bot.tbuserinv ui on ui.id_user = u.id
 left join bot.tbitens i on i.id = ui.id_item
 join bot.tbmoeda m on m.id_usuario = u.id
-where u.id_discord = {user_id}""" 
+where u.id_discord = {user_id}"""
 
-    c = conn.cursor() 
+    c = conn.cursor()
     c.execute(sql)
     s = c.fetchall()
-    embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {ctx.author.mention}', color=0x740000)
+    embed = discord.Embed(
+        title='INVENTARIO', description=f'ITENS DE {ctx.author.mention}', color=0x740000)
     if len(s) > 0:
-            
+
         for palavra in s:
-            
-            embed.add_field(name=''+f" - Item: {palavra[1]}", value=''+f" - Quantidade: {palavra[2]}", inline=False)
+
+            embed.add_field(
+                name=''+f" - Item: {palavra[1]}", value=''+f" - Quantidade: {palavra[2]}", inline=False)
 
     else:
 
-        embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
-    embed.add_field(name=''"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
+        embed.add_field(name='**NENHUM ITEM DISPONIVEL**',
+                        value='', inline=False)
+    embed.add_field(
+        name=''"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
     await ctx.send(embed=embed)
     return
+
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -218,7 +238,8 @@ async def on_command_error(ctx, error):
 
 
 ship_results = {}
-    
+
+
 @bot.command()
 async def ship(ctx, arg1=None, arg2=None):
     if arg1 is None or arg2 is None:
@@ -260,17 +281,19 @@ gifs_beijos = [
     "https://i.pinimg.com/originals/4d/67/84/4d6784bcad9589f99efd63f9474f841b.gif"
 ]
 
+
 @bot.command()
-async def beijo(ctx, member: discord.Member=None):
+async def beijo(ctx, member: discord.Member = None):
     if member is None:
         await ctx.message.reply("> Por favor forneça um nome.")
         return
-        
+
     if member == ctx.author:
         await ctx.message.reply("Você não pode se beijar!")
     else:
         gif_url = random.choice(gifs_beijos)
-        embed = discord.Embed(title="Beijinho :3", description=f"❤{ctx.author.mention} deu um beijo em {member.mention}!❤", color=0xFFC0CB)
+        embed = discord.Embed(
+            title="Beijinho :3", description=f"❤{ctx.author.mention} deu um beijo em {member.mention}!❤", color=0xFFC0CB)
         embed.set_image(url=gif_url)
         await ctx.send(embed=embed)
 
@@ -282,17 +305,19 @@ gifs_tapa = [
 
 ]
 
+
 @bot.command()
-async def tapa(ctx, member: discord.Member=None):
+async def tapa(ctx, member: discord.Member = None):
     if member is None:
         await ctx.message.reply("> Por favor forneça um nome.")
         return
-        
+
     if member == ctx.author:
         await ctx.message.reply("Não se bata, você não merece isso!")
     else:
         gif_url = random.choice(gifs_tapa)
-        embed = discord.Embed(title="Tapa!", description=f"{ctx.author.mention} deu um tapa em {member.mention}! >:(", color=0xFFC0CB)
+        embed = discord.Embed(
+            title="Tapa!", description=f"{ctx.author.mention} deu um tapa em {member.mention}! >:(", color=0xFFC0CB)
         embed.set_image(url=gif_url)
         await ctx.send(embed=embed)
 
@@ -303,19 +328,23 @@ gifs_hug = [
 
 ]
 
+
 @bot.command()
-async def abraço(ctx, member: discord.Member=None):                    
+async def abraço(ctx, member: discord.Member = None):
     if member is None:
         await ctx.message.reply("> Por favor forneça um nome.")
         return
-        
+
     if member == ctx.author:
         await ctx.send("Você não pode se abraçar!")
     else:
         gif_url = random.choice(gifs_hug)
-        embed = discord.Embed(title="Abraço ❤", description=f"❤{ctx.author.mention} deu um abraço em {member.mention}!❤", color=0xFFC0CB)
+        embed = discord.Embed(
+            title="Abraço ❤", description=f"❤{ctx.author.mention} deu um abraço em {member.mention}!❤", color=0xFFC0CB)
         embed.set_image(url=gif_url)
         await ctx.send(embed=embed)
+
+
 @bot.command()
 @commands.has_permissions(ban_members=True)
 async def banana(ctx, channel_name=None):
@@ -327,6 +356,7 @@ async def banana(ctx, channel_name=None):
     await ctx.channel.delete()
 
     new_channel = await category.create_text_channel(channel_name)
+
 
 @bot.command()
 async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
@@ -345,20 +375,21 @@ async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
         await resultado_mudado.delete()
     else:
         await ctx.send("Não há resultado anterior para esses nomes.")
-        
+
 
 @bot.group()
 async def contagem(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send("Você deve fornecer um subcomando válido, como 'iniciar' ou 'cancelar'.")
 
+
 @contagem.command()
 async def iniciar(ctx, tempo: int):
     if tempo <= 0:
         await ctx.send("O tempo deve ser um valor positivo em segundos.")
         return
-    
-    countdown_id = ctx.message.author.id 
+
+    countdown_id = ctx.message.author.id
     if countdown_id in active_countdowns:
         await ctx.send("Você já tem uma contagem em andamento.")
         return
@@ -366,14 +397,15 @@ async def iniciar(ctx, tempo: int):
     active_countdowns[countdown_id] = True
     for i in range(tempo, 0, -1):
         if countdown_id not in active_countdowns:
-            
+
             return
 
         await ctx.send(f"{i}...")
         await asyncio.sleep(1)
-    
+
     del active_countdowns[countdown_id]
     await ctx.send("Contagem concluída!")
+
 
 @contagem.command()
 async def cancelar(ctx):
@@ -383,6 +415,7 @@ async def cancelar(ctx):
         await ctx.send("Contagem cancelada.")
     else:
         await ctx.send("Não há nenhuma contagem em andamento.")
+
 
 @bot.command()
 async def off(ctx):
@@ -400,6 +433,7 @@ async def on(ctx):
     else:
         await ctx.message.reply('Você não tem permissão para ativar o bot.')
 
+
 @bot.event
 async def on_message(message):
     if message.content.startswith('!on'):
@@ -410,9 +444,10 @@ async def on_message(message):
         if message.content.startswith('!'):
             await message.channel.send('Não estou disponível.')
 
+
 @bot.command()
 @commands.has_permissions(ban_members=True)
-async def ban(ctx, member: discord.Member=None, *, reason=None):
+async def ban(ctx, member: discord.Member = None, *, reason=None):
     if member is None:
         await ctx.message.reply("Por favor, mencione um membro válido para banir.")
         return
@@ -420,15 +455,17 @@ async def ban(ctx, member: discord.Member=None, *, reason=None):
     await member.ban(reason=reason)
     await ctx.message.reply(f'{member.mention} foi banido.')
 
+
 @bot.command()
 @commands.has_permissions(kick_members=True)
-async def kick(ctx, member: discord.Member=None, *, reason=None):
+async def kick(ctx, member: discord.Member = None, *, reason=None):
     if member is None:
         await ctx.message.reply("Por favor, mencione um membro válido para expulsar.")
         return
 
     await member.kick(reason=reason)
     await ctx.message.reply(f'{member.mention} foi expulso.')
+
 
 @bot.command()
 async def unban(ctx, member_id: int):
@@ -445,6 +482,7 @@ async def unban(ctx, member_id: int):
     except discord.Forbidden:
         await ctx.send('Você não tem permissão para isso!')
 
+
 @bot.command()
 async def escolher(ctx, *alternativas):
     if len(alternativas) < 2:
@@ -453,32 +491,34 @@ async def escolher(ctx, *alternativas):
         escolha = random.choice(alternativas)
         await ctx.message.reply(f"Escolho: {escolha}")
 
+
 @bot.command()
 @commands.has_permissions(ban_members=True)
-async def clear(ctx, quantidade: int=None):
+async def clear(ctx, quantidade: int = None):
     if quantidade is None:
         await ctx.message.reply("Por favor, diga um número para deletar.")
         return
     if quantidade > 0:
 
         messages = await ctx.channel.history(limit=quantidade+1).flatten()
-        
+
         for message in messages:
             await message.delete()
-        
+
         delete_msg = await ctx.send(f'Deletado {len(messages)-1} mensagens.')
-        
+
         await asyncio.sleep(3)
         await delete_msg.delete()
 
         await asyncio.sleep(3)
         await ctx.message.delete()
 
+
 @bot.command()
 async def moeda(ctx):
     resultado = random.choice(['Cara', 'Coroa'])
     await ctx.message.reply(f":coin: {resultado}!")
-    
+
 
 def converter_tempo_para_minutos(tempo_str):
     match = re.match(r'(\d+)\s*([smhd])', tempo_str)
@@ -486,15 +526,15 @@ def converter_tempo_para_minutos(tempo_str):
         quantidade = int(match.group(1))
         unidade = match.group(2)
         if unidade == 's':
-            return quantidade / 60  
+            return quantidade / 60
         elif unidade == 'm':
             return quantidade
         elif unidade == 'h':
-            return quantidade * 60  
+            return quantidade * 60
         elif unidade == 'd':
-            return quantidade * 60 * 24  
+            return quantidade * 60 * 24
     return None
-    
+
 
 def converter_segundos_para_horas_minutos_segundos(segundos):
     horas = segundos // 3600
@@ -503,7 +543,9 @@ def converter_segundos_para_horas_minutos_segundos(segundos):
     segundos %= 60
     return horas, minutos, segundos
 
+
 scheduled_commands = {}
+
 
 @bot.command()
 async def tempo(ctx, tempo_str: str, *, comando: str):
@@ -513,14 +555,14 @@ async def tempo(ctx, tempo_str: str, *, comando: str):
         return
 
     scheduled_commands[ctx.author.id] = (comando, ctx.channel.id, minutos * 60)
-    
+
     await ctx.message.reply(f'Comando agendado por {minutos} minutos. Use "!time show" para ver os comandos ativos.')
 
     await asyncio.sleep(minutos * 60)
 
     if ctx.author.id in scheduled_commands:
         del scheduled_commands[ctx.author.id]
-        
+
         cmd, *args = comando.split(" ")
         if cmd:
             new_ctx = await bot.get_context(ctx.message)
@@ -529,18 +571,22 @@ async def tempo(ctx, tempo_str: str, *, comando: str):
         else:
             await ctx.send(f"O comando '{comando}' não está registrado.")
 
+
 @bot.group(invoke_without_command=True)
 async def time(ctx):
     await ctx.send("Comando inválido. Use !time show ou !time cancelar <comando>.")
+
 
 @time.command()
 async def show(ctx):
     if ctx.author.id in scheduled_commands:
         cmd, _, tempo_em_segundos = scheduled_commands[ctx.author.id]
-        horas, minutos, segundos = converter_segundos_para_horas_minutos_segundos(tempo_em_segundos)
+        horas, minutos, segundos = converter_segundos_para_horas_minutos_segundos(
+            tempo_em_segundos)
         await ctx.send(f"Comando agendado: {cmd}\nTempo restante: {horas}h {minutos}m {segundos}s")
     else:
         await ctx.send("Nenhum comando agendado.")
+
 
 @time.command()
 async def cancelar(ctx, *, cmd_name: str):
@@ -557,33 +603,52 @@ async def cancelar(ctx, *, cmd_name: str):
 
 @bot.command()
 async def ajuda(ctx):
-    embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-    embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
-    embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
-    embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
-    embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
-    embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
+    embed = discord.Embed(
+        title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
+    embed.add_field(name='!r <XdY>, ou !roll',
+                    value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
+    embed.add_field(name='!escolhe (opção1) (opção2)',
+                    value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
+    embed.add_field(name='!ppt <pedra,pepel ou tesoura>',
+                    value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
+    embed.add_field(
+        name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+    embed.add_field(name='!contagem (iniciar)(cancelar)',
+                    value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
     embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
-    embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
-    embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
-    embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
-    embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
-    embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
-    embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
+    embed.add_field(
+        name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
+    embed.add_field(
+        name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
+    embed.add_field(name='!anagrama',
+                    value='Um joguinho de anagrama, vai.', inline=False)
+    embed.add_field(name='!ship (nome) (nome)',
+                    value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
+    embed.add_field(
+        name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
+    embed.add_field(
+        name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
     embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
-    embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+    embed.set_footer(
+        text='Para mais informações, manda mensagem para o Gui aí.')
     await ctx.send(embed=embed)
+
 
 @bot.command()
 @commands.has_permissions(ban_members=True)
 async def adm(ctx):
-    embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos de administradores disponíveis:', color=0x740000)
-    embed.add_field(name='!clear (quantidade)', value='Deleta aquele monte de conversa do chat.', inline=False)
+    embed = discord.Embed(
+        title='Ajuda', description='Aqui está a lista de comandos de administradores disponíveis:', color=0x740000)
+    embed.add_field(name='!clear (quantidade)',
+                    value='Deleta aquele monte de conversa do chat.', inline=False)
     embed.add_field(name='!ban (@player)', value='Banido!', inline=False)
     embed.add_field(name='!kick (@player)', value='Expulso!', inline=False)
-    embed.add_field(name='!dado (set, unset ou show)', value='Adiciona um número viciado ao dado, retira ou vê qual está setado!', inline=False)
-    embed.add_field(name='!off', value='Incapacita o bot de usar qualquer comando', inline=False)
-    embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+    embed.add_field(name='!dado (set, unset ou show)',
+                    value='Adiciona um número viciado ao dado, retira ou vê qual está setado!', inline=False)
+    embed.add_field(
+        name='!off', value='Incapacita o bot de usar qualquer comando', inline=False)
+    embed.set_footer(
+        text='Para mais informações, manda mensagem para o Gui aí.')
     await ctx.send(embed=embed)
 
 
@@ -610,22 +675,26 @@ async def ppt(ctx, player_choice):
 
 user_settings = {}
 
+
 @bot.group()
 @commands.has_permissions(ban_members=True)
 async def dado(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send("Invalido! Use '!dado 'set', 'unset' ou 'show'!")
 
+
 @dado.command()
 async def set(ctx, fixed_value: int):
     user_settings[ctx.author.id] = fixed_value
     await ctx.send(f"Valor `{fixed_value}` setado, cuidado!")
+
 
 @dado.command()
 async def unset(ctx):
     if ctx.author.id in user_settings:
         del user_settings[ctx.author.id]
         await ctx.send("Valor retirado")
+
 
 @dado.command()
 async def show(ctx):
@@ -634,6 +703,7 @@ async def show(ctx):
         await ctx.send(f"O valor setado é: {fixed_value}")
     else:
         await ctx.send("Não houve valor setado ainda.")
+
 
 @bot.command()
 async def r(ctx, dice: str):
@@ -648,7 +718,8 @@ async def r(ctx, dice: str):
 
             negative_total = sum(int(modifier) for modifier in negative)
             positive_total = sum(int(modifier) for modifier in positive)
-            modifier_total = sum(int(modifier) for modifier in positive) - sum(int(modifier) for modifier in negative)
+            modifier_total = sum(int(modifier) for modifier in positive) - \
+                sum(int(modifier) for modifier in negative)
 
             if limit < 1 or limit > 100:
                 await ctx.message.reply('Opa... Você só pode usar os números de 1 a 100!')
@@ -678,21 +749,27 @@ async def r(ctx, dice: str):
         await ctx.message.reply('\n'.join(results_list))
 
     except Exception:
-        embed = discord.Embed(title='Algo deu errado. :game_die:', description='Use esse formato:', color=0x740000)
-        embed.add_field(name='!r (Quantidade de dados e Dado desejado [+/- Modificadores] ou 1d20#1d20)', value='1d20 Por exemplo!', inline=False)
-        embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+        embed = discord.Embed(title='Algo deu errado. :game_die:',
+                              description='Use esse formato:', color=0x740000)
+        embed.add_field(
+            name='!r (Quantidade de dados e Dado desejado [+/- Modificadores] ou 1d20#1d20)', value='1d20 Por exemplo!', inline=False)
+        embed.set_footer(
+            text='Para mais informações, manda mensagem para o Gui aí.')
         await ctx.message.reply(embed=embed)
 
-palavras = ["abacaxi", "banana", "guitarra", "praia", "senha", "rpg", "cryptomoeda", "serra", "mor", "otto", "edgar", "katsuragi", "lucifer", "idril", "shiro", "naato", "servo", "historia", "batata", "banimento", "minecraft", "herobrine", "laninieu", "galaxia", "abóbora", "chocolate", "elefante", "dança", "computador", "sol", "cachorro", "livro", "laranja", "camiseta", "avião", "espelho", "futebol", "pizza", "girafa", "vento", "cama", "tênis", "sushi"]
+palavras = ["abacaxi", "banana", "guitarra", "praia", "senha", "rpg", "cryptomoeda", "serra", "mor", "otto", "edgar", "katsuragi", "lucifer", "idril", "shiro", "naato", "servo", "historia", "batata", "banimento", "minecraft",
+            "herobrine", "laninieu", "galaxia", "abóbora", "chocolate", "elefante", "dança", "computador", "sol", "cachorro", "livro", "laranja", "camiseta", "avião", "espelho", "futebol", "pizza", "girafa", "vento", "cama", "tênis", "sushi"]
 
 
 def get_random_word():
     return random.choice(palavras)
 
+
 @bot.group()
 async def forca(ctx):
-        if ctx.invoked_subcommand is None:
-            await ctx.send("User 'iniciar' ou 'cancelar'.")
+    if ctx.invoked_subcommand is None:
+        await ctx.send("User 'iniciar' ou 'cancelar'.")
+
 
 @forca.command()
 async def iniciar(ctx):
@@ -720,7 +797,7 @@ async def iniciar(ctx):
         if "-" not in montar_forca():
             return "player"
         elif tentativas == 0:
-            jogo_ativo = False 
+            jogo_ativo = False
             return "bot"
         else:
             return None
@@ -776,33 +853,36 @@ async def iniciar(ctx):
             await ctx.send(f"O tempo limite para responder acabou, a palavra era {palavra}. Jogo cancelado!")
             jogo_ativo = False
 
+
 @forca.command()
 async def cancelar(ctx):
     global jogo_ativo
     await ctx.message.reply("Jogo cancelado.")
     jogo_ativo = False
 
+
 @bot.command()
 async def cantada(ctx):
     cantadas = ["Você não é o Google, mas tem tudo o que eu procuro.",
-"Acredita em amor à primeira vista ou devo passar por aqui mais uma vez?",
-"Ei, você tem um mapa? Porque me perdi no brilho dos seus olhos.",
-"Você é feito de cobre e telúrio? Porque você é Cu-Te!",
-"Se beleza fosse crime, você pegaria prisão perpétua.",
-"Seu pai é astronauta? Porque você é de outro mundo!",
-"Aposto um beijo que você me dá um fora.",
-"Você é um dicionário? Porque quando te vejo, as palavras desaparecem.",
-"Se você fosse um sanduíche, seria um 'x-princesa'.",
-"Meu amor por você é como a constante matemática 'pi': irracional, infinito e impossível de ser calculado."]  
+                "Acredita em amor à primeira vista ou devo passar por aqui mais uma vez?",
+                "Ei, você tem um mapa? Porque me perdi no brilho dos seus olhos.",
+                "Você é feito de cobre e telúrio? Porque você é Cu-Te!",
+                "Se beleza fosse crime, você pegaria prisão perpétua.",
+                "Seu pai é astronauta? Porque você é de outro mundo!",
+                "Aposto um beijo que você me dá um fora.",
+                "Você é um dicionário? Porque quando te vejo, as palavras desaparecem.",
+                "Se você fosse um sanduíche, seria um 'x-princesa'.",
+                "Meu amor por você é como a constante matemática 'pi': irracional, infinito e impossível de ser calculado."]
     escolha = random.choice(cantadas)
     await ctx.message.reply(f"{escolha}")
 
 cartas = 927010543515107429
 
+
 @bot.command()
 async def carta(ctx, remetente: discord.Member, *, mensagem):
     canal = bot.get_channel(cartas)
-    
+
     user = ctx.author
     embed = discord.Embed(
         title=f"Carta Anônima para {remetente.display_name}",
@@ -810,11 +890,12 @@ async def carta(ctx, remetente: discord.Member, *, mensagem):
         color=discord.Color.random()
     )
     embed.set_footer(text=f"Uiui")
-    embed.set_image(url="https://media.tenor.com/UdiK4V7MxYYAAAAM/anime-girl.gif")
+    embed.set_image(
+        url="https://media.tenor.com/UdiK4V7MxYYAAAAM/anime-girl.gif")
 
-    
     await canal.send(embed=embed)
     await ctx.message.delete()
+
 
 @carta.error
 async def carta_error(ctx, error):
@@ -822,12 +903,13 @@ async def carta_error(ctx, error):
         error = await ctx.message.reply("Por favor, forneça o remetente e a mensagem corretamente. Exemplo: `!carta @remetente mensagem`")
         await asyncio.sleep(5)
         await error.delete()
-        await ctx.message.delete() 
+        await ctx.message.delete()
+
 
 @bot.command()
 async def anagrama(ctx):
-    palavras = ['Amor', 'Casa', 'Vida', 'Gato', 'Rato', 'Pato', 'Livro', 'Mesa', 'Cama', 'Flor','Sol', 'Lua', 'Mar', 'Céu', 'Terra', 'Água', 'Fogo', 'Ar', 'Chuva', 'Neve','Vento', 'Laranja', 'Limão', 'Maçã', 'Banana', 'Abacaxi', 'Morango', 'Uva', 'Melancia', 'Mamão','Kiwi', 'Cachorro', 'Gato', 'Passarinho', 'Leão', 'Tigre', 'Elefante', 'Girafa', 'Zebra', 'Cobra','Tartaruga', 'Borboleta', 'Abelha', 'Formiga', 'Mosquito', 'Aranha', 'Escorpião', 'Sapo', 'Peixe', 'Baleia','Tubarão', 'Golfinho', 'Crocodilo', 'Jacaré', 'Águia', 'Falcão', 'Coruja', 'Pinguim', 'Esquilo', 'Raposa','Elefante', 'Rinoceronte', 'Hiena', 'Camaleão', 'Mosca', 'Caracol', 'Barata', 'Veado', 'Cervo', 'Urso','Guaxinim', 'Texugo', 'Castor', 'Canguru', 'Coala', 'Panda', 'Girafa', 'Canguru', 'Gorila', 'Chimpanzé','Orangotango', 'Lagarto', 'Javali', 'Raposa', 'Doninha', 'Lince', 'Rã', 'Grilo', 'Mariposa', 'Louva-a-deus','Morcego', 'Escaravelho', 'Centopeia', 'Tatu', 'Arara', 'Peixe-boi', 'Tamanduá', 'Quati', 'Gazela', 'Mandril','Hipopótamo', 'Quimera', 'Xilofone', 'Epistemologia', 'Obfuscado', 'Zoologia', 'Iconoclasta', 'Escatologia','Procrastinação', 'Abstruso', 'Anacronismo', 'Elocubração', 'Cacofonia', 'Exacerbado', 'Fosforescência','Quinquagésimo', 'Paradoxo', 'Axiomático', 'Filantropia', 'Serendipidade', 'Ambivalente', 'Dissonância','Onomatopeia', 'Paradigma', 'Perspicácia', 'Quotidiano', 'Zeladoria', 'Enigmatizar', 'Imperturbável', 'Ubíquo','Circunloquio', 'Vicissitude', 'Inefável', 'Insondável', 'Ineffugível', 'Inefugível', 'Plenipotenciário','Polimatia', 'Ineficácia', 'Inexorável', 'Indômito', 'Heliocentrismo', 'Querubim', 'Cosmogonia', 'Eclético','Peregrinação', 'Eufemismo', 'Antítese', 'Penumbra', 'Recôndito']
-
+    palavras = ['Amor', 'Casa', 'Vida', 'Gato', 'Rato', 'Pato', 'Livro', 'Mesa', 'Cama', 'Flor', 'Sol', 'Lua', 'Mar', 'Céu', 'Terra', 'Água', 'Fogo', 'Ar', 'Chuva', 'Neve', 'Vento', 'Laranja', 'Limão', 'Maçã', 'Banana', 'Abacaxi', 'Morango', 'Uva', 'Melancia', 'Mamão', 'Kiwi', 'Cachorro', 'Gato', 'Passarinho', 'Leão', 'Tigre', 'Elefante', 'Girafa', 'Zebra', 'Cobra', 'Tartaruga', 'Borboleta', 'Abelha', 'Formiga', 'Mosquito', 'Aranha', 'Escorpião', 'Sapo', 'Peixe', 'Baleia', 'Tubarão', 'Golfinho', 'Crocodilo', 'Jacaré', 'Águia', 'Falcão', 'Coruja', 'Pinguim', 'Esquilo', 'Raposa', 'Elefante', 'Rinoceronte', 'Hiena', 'Camaleão', 'Mosca', 'Caracol', 'Barata', 'Veado', 'Cervo', 'Urso', 'Guaxinim', 'Texugo', 'Castor', 'Canguru', 'Coala', 'Panda', 'Girafa', 'Canguru', 'Gorila', 'Chimpanzé', 'Orangotango', 'Lagarto', 'Javali', 'Raposa', 'Doninha', 'Lince', 'Rã',
+                'Grilo', 'Mariposa', 'Louva-a-deus', 'Morcego', 'Escaravelho', 'Centopeia', 'Tatu', 'Arara', 'Peixe-boi', 'Tamanduá', 'Quati', 'Gazela', 'Mandril', 'Hipopótamo', 'Quimera', 'Xilofone', 'Epistemologia', 'Obfuscado', 'Zoologia', 'Iconoclasta', 'Escatologia', 'Procrastinação', 'Abstruso', 'Anacronismo', 'Elocubração', 'Cacofonia', 'Exacerbado', 'Fosforescência', 'Quinquagésimo', 'Paradoxo', 'Axiomático', 'Filantropia', 'Serendipidade', 'Ambivalente', 'Dissonância', 'Onomatopeia', 'Paradigma', 'Perspicácia', 'Quotidiano', 'Zeladoria', 'Enigmatizar', 'Imperturbável', 'Ubíquo', 'Circunloquio', 'Vicissitude', 'Inefável', 'Insondável', 'Ineffugível', 'Inefugível', 'Plenipotenciário', 'Polimatia', 'Ineficácia', 'Inexorável', 'Indômito', 'Heliocentrismo', 'Querubim', 'Cosmogonia', 'Eclético', 'Peregrinação', 'Eufemismo', 'Antítese', 'Penumbra', 'Recôndito']
 
     palavra = random.choice(palavras)
     embaralhada = ''.join(random.sample(palavra, len(palavra))).lower()
