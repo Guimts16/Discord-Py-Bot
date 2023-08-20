@@ -15,18 +15,7 @@ bot_ativo = True
 intents.typing = False
 intents.presences = False
 
-
 bot.remove_command('help')
-
-
-def createEmbedTitle(titulo = "", descricao = "", cor = 0x2b2d31):
-    return discord.Embed(title=titulo, description=descricao, color=cor)
-    
-def EmbedAddField(embed, nome = "", valor = ""):
-    embed.add_field(name=nome, value=valor, inline=False)
-
-def EmbedAddFooter(embed, descricao = ""):
-    embed.set_footer(text=descricao)
 
 @bot.event
 async def on_ready():
@@ -87,16 +76,16 @@ async def help(ctx):
 @bot.group()
 async def shop(ctx):
     if ctx.invoked_subcommand is None:
-        embed = createEmbedTitle("Ajuda", 'Aqui está a lista de comandos disponíveis: ', 0x740000)
+        embed = discord.Embed(
+            title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
 
         for k, v in shop.shop().iteritems():
-            EmbedAddField(embed, k, v)
+            embed.add_field(name=k,value=v, inline=False)
 
-        EmbedAddFooter(embed, "Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!")
-
+        embed.set_footer(
+            text='Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!')
         await ctx.message.reply(embed=embed)
         return
-
 
 @shop.command()
 async def ver(ctx):
