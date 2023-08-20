@@ -4,15 +4,7 @@ import random
 import asyncio
 import re
 from datetime import datetime, timedelta
-import mysql.connector 
 
-conn = mysql.connector.connect(
-    user="root",
-    password="3141592",
-    host="127.0.0.1",
-    database="bot",
-    auth_plugin='mysql_native_password'
-)
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -122,27 +114,40 @@ async def buy(ctx):
 
 @shop.command()
 async def daily(ctx):
-    user_id = ctx.author.id
-
     global conn
-    sql  = f"""select
-m.moedas,
-u.id
-from bot.tbuser u
-join bot.tbmoeda m on m.id_usuario = u.id
-where u.id_discord = {user_id}"""
+    user_id = ctx.author.id
+    
+    sql  = f"""
+        select
+        m.moedas,
+        u.id,
+        if(((extract(day from m.cooldown) = (extract(day from current_date()))) and 
+        (extract(month from m.cooldown) = (extract(month from current_date())))) , 1, 0),
+        m.cooldown
+        from bot.tbuser u
+        join bot.tbmoeda m on m.id_usuario = u.id
+        where u.id_discord = {user_id}
+    """
     
     c = conn.cursor()
     c.execute(sql)
     r = c.fetchall()
 
+    if r[0][2] == 1:
+        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {r[0][3]}")
+        return
+
     moedas = r[0][0]
     daily = random.randrange(5,31)
     moedasDaily = moedas + daily
-    sql = f"""update bot.tbmoeda set moedas = {moedasDaily}
-where id_usuario = {r[0][1]}
+    sql = f"""
+        update 
+        bot.tbmoeda 
+        set moedas = {moedasDaily},
+        cooldown = {datetime.date}
+        where id_usuario = {r[0][1]}
+    """
 
-"""
     c = conn.cursor()
     c.execute(sql)
     conn.commit()
