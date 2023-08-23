@@ -28,7 +28,7 @@ bot.remove_command('help')
 @bot.event
 async def on_ready():
     print(f'LOGADO EM {bot.user}')
-    await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="lohgui"))
+    await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="eloh + gui = <3"))
 
 @bot.event
 async def on_message(message):
@@ -74,7 +74,7 @@ async def shop(ctx):
             embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
             embed.add_field(name='!shop buy', value='Fazer suas compras', inline=False)
             embed.add_field(name='!shop ver', value='Para ver os itens diponiveis', inline=False)
-            embed.add_field(name='!shop daily', value='Pegue suas recompensas diarias para não ficar zerado!', inline=False)
+            embed.add_field(name='!daily', value='Pegue suas recompensas diarias para não ficar zerado!', inline=False)
             embed.add_field(name='!inv', value='Olhe seu inventario!', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!')
             await ctx.message.reply(embed=embed)
@@ -134,57 +134,6 @@ where u.id_discord = {user_id}"""
     r = c.fetchall()
 
 @shop.command()
-async def daily(ctx):
-    global conn
-    user_id = ctx.author.id
-    
-    sql  = f"""
-        select
-        m.moedas,
-        u.id,
-        if(((extract(day from m.cooldown) = (extract(day from current_date()))) and 
-        (extract(month from m.cooldown) = (extract(month from current_date())))) , 1, 0),
-        m.cooldown
-        from bot.tbuser u
-        join bot.tbmoeda m on m.id_usuario = u.id
-        where u.id_discord = {user_id}
-    """
-    
-    c = conn.cursor()
-    c.execute(sql)
-    r = c.fetchall()
-
-
-    if r[0][2] == 1:
-        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {str(r[0][3])[0:10]}")
-        return
-
-    moedas = r[0][0]
-    daily = random.randrange(5,31)
-    moedasDaily = moedas + daily
-
-
-
-    sql = f"""
-        update 
-        bot.tbmoeda 
-        set moedas = {moedasDaily},
-        cooldown = '{str(datetime.now()).replace("-",".")[0:10].strip()}'
-        where id_usuario = {r[0][1]}
-    """
-
-
-
-    c = conn.cursor()
-    c.execute(sql)
-    conn.commit()
-    
-  
-    await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
-    
-
-
-@shop.command()
 async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
     if nome is None or preco is None or estoque is None or desc is None:    
         await ctx.message.reply('Forneça o item, o preço, a quantidade e a descrição!')
@@ -236,6 +185,57 @@ where u.id_discord = {user_id}"""
     embed.add_field(name=''"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
     await ctx.send(embed=embed)
     return
+
+@bot.command()
+async def daily(ctx):
+    global conn
+    user_id = ctx.author.id
+    
+    sql  = f"""
+        select
+        m.moedas,
+        u.id,
+        if(((extract(day from m.cooldown) = (extract(day from current_date()))) and 
+        (extract(month from m.cooldown) = (extract(month from current_date())))) , 1, 0),
+        m.cooldown
+        from bot.tbuser u
+        join bot.tbmoeda m on m.id_usuario = u.id
+        where u.id_discord = {user_id}
+    """
+    
+    c = conn.cursor()
+    c.execute(sql)
+    r = c.fetchall()
+
+
+    if r[0][2] == 1:
+        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {str(r[0][3])[0:10]}")
+        return
+
+    moedas = r[0][0]
+    daily = random.randrange(5,31)
+    moedasDaily = moedas + daily
+
+
+
+    sql = f"""
+        update 
+        bot.tbmoeda 
+        set moedas = {moedasDaily},
+        cooldown = '{str(datetime.now()).replace("-",".")[0:10].strip()}'
+        where id_usuario = {r[0][1]}
+    """
+
+
+
+    c = conn.cursor()
+    c.execute(sql)
+    conn.commit()
+    
+  
+    await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
+    
+
 
 @bot.event
 async def on_command_error(ctx, error):
