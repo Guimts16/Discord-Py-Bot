@@ -1,9 +1,10 @@
+from time import mktime
 import discord
 from discord.ext import commands
 import random
 import asyncio
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 import mysql.connector 
 
 conn = mysql.connector.connect(
@@ -85,7 +86,8 @@ async def ver(ctx):
     global conn
     sql = """select
 i.nome, i.preco, i.estoque, i.descricao
-from bot.tbitens i""" 
+from bot.tbitens i
+where i.ativo = 1""" 
     c = conn.cursor() 
     c.execute(sql)
     r = c.fetchall()
@@ -162,17 +164,19 @@ async def inv(ctx):
 u.id_discord, 
 i.nome,
 ui.quantidade,
-m.moedas
+m.moedas,
+d.descricao
 from bot.tbuser u
 join bot.tbuserinv ui on ui.id_user = u.id
 left join bot.tbitens i on i.id = ui.id_item
+left join bot.tbitens d on i.id = d.descricao
 join bot.tbmoeda m on m.id_usuario = u.id
 where u.id_discord = {user_id}""" 
 
     c = conn.cursor() 
     c.execute(sql)
     s = c.fetchall()
-    embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {ctx.author.mention}', color=0x740000)
+    embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {ctx.author.mention}', color=0x71368A)
     if len(s) > 0:
             
         for palavra in s:
@@ -182,7 +186,7 @@ where u.id_discord = {user_id}"""
     else:
 
         embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
-    embed.add_field(name=''"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
+    embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜'"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
     await ctx.send(embed=embed)
     return
 
@@ -195,8 +199,7 @@ async def daily(ctx):
         select
         m.moedas,
         u.id,
-        if(((extract(day from m.cooldown) = (extract(day from current_date()))) and 
-        (extract(month from m.cooldown) = (extract(month from current_date())))) , 1, 0),
+        if(UNIX_TIMESTAMP(current_date) - m.cooldown < 86400, 1, 0),
         m.cooldown
         from bot.tbuser u
         join bot.tbmoeda m on m.id_usuario = u.id
@@ -209,20 +212,20 @@ async def daily(ctx):
 
 
     if r[0][2] == 1:
-        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {str(r[0][3])[0:10]}")
+        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {datetime.utcfromtimestamp(float(r[0][3])).strftime('%Y-%m-%d %H:%M:%S')}")
         return
 
     moedas = r[0][0]
-    daily = random.randrange(5,31)
+    daily = random.randrange(5,51)
     moedasDaily = moedas + daily
 
 
 
     sql = f"""
         update 
-        bot.tbmoeda 
+        bot.tbmoeda     
         set moedas = {moedasDaily},
-        cooldown = '{str(datetime.now()).replace("-",".")[0:10].strip()}'
+        cooldown = '{(mktime(datetime.now().timetuple()))}'
         where id_usuario = {r[0][1]}
     """
 
@@ -298,7 +301,7 @@ async def calc(ctx, *, expression):
     try:
         result = eval(expression)
         await ctx.send(f"{expression} = {result}")
-    except Exception as erro:
+    except Exception as e:
         print(f"Erro ao calcular: {e}")
 
 @bot.command()
@@ -357,6 +360,7 @@ async def abraço(ctx, member: discord.Member=None):
         embed = discord.Embed(title="Abraço ❤", description=f"❤{ctx.author.mention} deu um abraço em {member.mention}!❤", color=0xFFC0CB)
         embed.set_image(url=gif_url)
         await ctx.send(embed=embed)
+
 @bot.command()
 @commands.has_permissions(ban_members=True)
 async def banana(ctx, channel_name=None):
@@ -368,6 +372,30 @@ async def banana(ctx, channel_name=None):
     await ctx.channel.delete()
 
     new_channel = await category.create_text_channel(channel_name)
+
+casais = {}
+    
+
+@bot.command()
+async def casar(ctx, pessoa: discord.Member):
+
+    if ctx.author in casais:
+        await ctx.send(f"Você já está casado com {pessoa}!!! Tá maluco?? Use ``!divorciar`` caso não queira mais...")
+
+    elif pessoa in casais.values():
+        await ctx.send("A pessoa que você deseja casar já está casada! Safadinho")
+    else:
+        casais[ctx.author] = pessoa
+        await ctx.message.reply(f"Hmmm casalzinho novo! :3\n{ctx.author.mention} e {pessoa.mention} estão casados agora!")
+
+@bot.command()
+async def divorciar(ctx):
+
+    if ctx.author in casais:
+        ex_parceiro = casais.pop(ctx.author)
+        await ctx.send(f"{ctx.author.mention} e {ex_parceiro.mention} estão divorciados agora...")
+    else:
+        await ctx.send("Você não está casado!")
 
 @bot.command()
 async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
@@ -517,6 +545,8 @@ async def clear(ctx, quantidade: int=None):
 
 @bot.command()
 async def moeda(ctx):
+
+
     resultado = random.choice(['Cara', 'Coroa'])
     await ctx.message.reply(f":coin: {resultado}!")
     
@@ -629,26 +659,93 @@ async def adm(ctx):
     await ctx.send(embed=embed)
 
 
-def get_winner(player_choice, bot_choice):
-    if player_choice == bot_choice:
-        return "Empate!"
-    elif (player_choice == "pedra" and bot_choice == "tesoura") or (player_choice == "papel" and bot_choice == "pedra") or (player_choice == "tesoura" and bot_choice == "papel"):
-        return "Você venceu!"
-    else:
-        return "Eu venço!"
-
 
 @bot.command()
-async def ppt(ctx, player_choice):
-    choices = ["pedra", "papel", "tesoura"]
-    bot_choice = random.choice(choices)
+async def ppt(ctx, escolha):
+    global conn
+    user_id = ctx.author.id
+    
+    sql  = f"""
+        select
+        m.moedas,
+        u.id,
+        if(UNIX_TIMESTAMP(current_date) - m.cooldown < 86400, 1, 0),
+        m.cooldown
+        from bot.tbuser u
+        join bot.tbmoeda m on m.id_usuario = u.id
+        where u.id_discord = {user_id}
+    """
+    
+    c = conn.cursor()
+    c.execute(sql)
+    r = c.fetchall()
 
-    if player_choice.lower() not in choices:
-        await ctx.send("Escolha inválida. Por favor, escolha entre 'pedra', 'papel' ou 'tesoura'.")
+
+    if r[0][2] == 1:
+        escolha = escolha.lower()
+        if escolha not in ['pedra', 'papel', 'tesoura']:
+            await ctx.send('Escolha inválida. Use `pedra`, `papel` ou `tesoura`.')
+            return
+
+        choices = ['pedra', 'papel', 'tesoura']
+        escolha_bot = random.choice(choices)
+
+        if escolha == escolha_bot:
+            resultado = "Empate!"
+        elif (
+            (escolha == "pedra" and escolha_bot == "tesoura") or
+            (escolha == "papel" and escolha_bot == "pedra") or
+            (escolha == "tesoura" and escolha_bot == "papel")
+        ):
+            resultado = "Você venceu!"
+        else:
+            resultado = "Eu venci!"
+
+        await ctx.send(f'Eu escolhi {escolha_bot}. {resultado}')
         return
 
-    winner = get_winner(player_choice.lower(), bot_choice)
-    await ctx.message.reply(f"Eu escolho {bot_choice}. {winner}")
+    moedas = r[0][0]
+    daily = random.randrange(1,11)
+    moedasDaily = moedas + daily
+
+
+
+    sql = f"""
+        update 
+        bot.tbmoeda     
+        set moedas = {moedasDaily},
+        cooldown = '{(mktime(datetime.now().timetuple()))}'
+        where id_usuario = {r[0][1]}
+    """
+
+
+
+    c = conn.cursor()
+    c.execute(sql)
+    conn.commit()
+
+
+    escolha = escolha.lower()
+    if escolha not in ['pedra', 'papel', 'tesoura']:
+        await ctx.send('Escolha inválida. Use `pedra`, `papel` ou `tesoura`.')
+        return
+
+    choices = ['pedra', 'papel', 'tesoura']
+    escolha_bot = random.choice(choices)
+
+    if escolha == escolha_bot:
+        resultado = "Empate!"
+    elif (
+        (escolha == "pedra" and escolha_bot == "tesoura") or
+        (escolha == "papel" and escolha_bot == "pedra") or
+        (escolha == "tesoura" and escolha_bot == "papel")
+    ):
+        resultado = "Você venceu!"
+    else:
+        resultado = "Eu venci!"
+
+    await ctx.send(f'Eu escolhi {escolha_bot}. {resultado}')
+    await ctx.message.reply(f"Você recebeu {daily} moedas! Use ``!inv`` para ver o total!")
 
 user_settings = {}
 
