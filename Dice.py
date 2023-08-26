@@ -89,7 +89,8 @@ async def ver(ctx):
         i.nome, 
         i.preco, 
         i.estoque, 
-        i.descricao
+        i.descricao,
+        i.id
         from bot.tbitens i
         where i.ativo = 1
     """ 
@@ -102,9 +103,11 @@ async def ver(ctx):
             
         for tupla in r:
             
-            embed.add_field(name=tupla[0]+f" - Estoque: {tupla[2]}", value=tupla[3]+f" - Preço: {tupla[1]} moedas de prata!", inline=False)
+            embed.add_field(name=str(tupla[4])+" - "+tupla[0]+f" - Estoque: {tupla[2]}", value=tupla[3]+f" - Preço: {tupla[1]} moedas de prata!", inline=False)
+
     else:
         embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
+    embed.set_footer(text='Use !buy e o número do item desejado!')
     await ctx.send(embed=embed)
 
 @shop.command()
@@ -124,7 +127,7 @@ async def delete(ctx, item=None):
 
 
 @shop.command()
-async def buy(ctx, nome, quantidade):
+async def buy(ctx, item, qtd):
     user_id = ctx.author.id
 
     global conn
@@ -132,7 +135,8 @@ async def buy(ctx, nome, quantidade):
         select 
         u.id_discord,
         m.moedas,
-        (select i.preco from bot.tbitens i where i.nome like '{nome}')as preco
+        (select i.preco from bot.tbitens i where i.id = '{item}')as preco,
+        (select i.nome from bot.tbitens i where i.id = '{item}')
         from bot.tbuser u
         join bot.tbmoeda m on m.id_usuario = u.id
         where u.id_discord = {user_id}
@@ -141,6 +145,28 @@ async def buy(ctx, nome, quantidade):
     c = conn.cursor()
     c.execute(sql)
     r = c.fetchall()
+    total = int(r[0][2])*int(qtd)
+
+    if int(r[0][1]) >= total:
+        sql = f"""
+            select  
+            u.quantidade
+            from bot.tbuserinv u
+            join bot.tbuser r on r.id = u.id_user
+            where r.id_discord = '{user_id}'
+            and u.id_item = {item} 
+        """
+        c = conn.cursor()
+        c.execute(sql)
+        r = c.fetchall()
+       
+        if not r[0][0]:
+        else:
+            
+            
+        await ctx.send(f'Compra feita com sucesso! Você adiquiriu {qtd} de {r[0][3]}.')
+    else:
+        await ctx.send("POBREEEEEEEEEEE") 
 
 @shop.command()
 async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
