@@ -29,7 +29,7 @@ bot.remove_command('help')
 @bot.event
 async def on_ready():
     print(f'LOGADO EM {bot.user}')
-    await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="eloh + gui = <3"))
+    await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="a"))
 
 @bot.event
 async def on_message(message):
