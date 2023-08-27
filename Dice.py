@@ -135,10 +135,13 @@ async def buy(ctx, item, qtd):
         select 
         u.id_discord,
         m.moedas,
-        (select i.preco from bot.tbitens i where i.id = '{item}')as preco,
-        (select i.nome from bot.tbitens i where i.id = '{item}')
+        (select i.preco from bot.tbitens i where i.id = {item})as preco,
+        (select i.nome from bot.tbitens i where i.id = {item}) as nome_item,
+        (select i.estoque from bot.tbitens i where i.id = {item}) as qtd_item,
+        ui.quantidade
         from bot.tbuser u
         join bot.tbmoeda m on m.id_usuario = u.id
+        left join bot.tbuserinv ui on ui.id_user = u.id
         where u.id_discord = {user_id}
     """
 
@@ -146,6 +149,11 @@ async def buy(ctx, item, qtd):
     c.execute(sql)
     r = c.fetchall()
     total = int(r[0][2])*int(qtd)
+
+    id_db = r[0][0]
+    moedas_atuais = r[0][1]
+    estoque = r[0][4]
+    qtd_user_inv = r[0][5]
 
     if int(r[0][1]) >= total:
         sql = f"""
@@ -161,9 +169,23 @@ async def buy(ctx, item, qtd):
         r = c.fetchall()
        
         if not r[0][0]:
+            # nao tem o item no inv
+            # entao
+            # sql = insert bot.tbuserinv id_item id qtd
+
         else:
+            qtd_new = qtd_user_inv + qtd
+            # sql update userinv set {qtd_new} where id_user = 2
             
-            
+        c = conn.cursor()
+        c.execute(sql)
+        conn.commit()
+        m = moeda_atuais - total
+
+        # sql = update tbmoeda set moeda = {m} where id_user = 12 
+        qtd_nova = estoque - qtd
+        # sql = update tbitens set qtd = {qtd_nova} where id = 2
+
         await ctx.send(f'Compra feita com sucesso! Você adiquiriu {qtd} de {r[0][3]}.')
     else:
         await ctx.send("POBREEEEEEEEEEE") 
