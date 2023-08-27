@@ -116,15 +116,15 @@ async def coinset(ctx, moedas=None, users=None):
     global conn
 
     sql = f"""
-    update 
-    bot.tbmoeda     
-    set moedas = {moedas},
-    where id_usuario = {users}
+        update 
+        bot.tbmoeda     
+        set moedas = {moedas},
+        where id_usuario = {users}
     """
     c = conn.cursor() 
     c.execute(sql)
     conn.commit()
-
+    await ctx.message.reply(f"Moedas de {users} foram atualizadas para {moedas}")
 
 
 
@@ -147,8 +147,7 @@ async def delete(ctx, item=None):
 @shop.command()
 async def buy(ctx, item, qtd):
     user_id = ctx.author.id
-#
-#
+
 
 @shop.command()
 async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
