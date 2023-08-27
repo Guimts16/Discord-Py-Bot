@@ -49,45 +49,50 @@ async def on_message(message):
 
 @bot.command(name='help', with_app_command=True)
 async def help(ctx):
-        embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-        embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
-        embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
-        embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
-        embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
-        embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
-        embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
-        embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
-        embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
-        embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
-        embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
-        embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
-        embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
-        embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
-        embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
-        embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-        await ctx.message.reply(embed=embed)
+    embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
+    embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
+    embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
+    embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
+    embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+    embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
+    embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
+    embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
+    embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
+    embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
+    embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
+    embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
+    embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
+    embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
+    embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
+    embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+    await ctx.message.reply(embed=embed)
 
 
 
 @bot.group()
 async def shop(ctx):
-        if ctx.invoked_subcommand is None:
-            embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-            embed.add_field(name='!shop buy', value='Fazer suas compras', inline=False)
-            embed.add_field(name='!shop ver', value='Para ver os itens diponiveis', inline=False)
-            embed.add_field(name='!daily', value='Pegue suas recompensas diarias para não ficar zerado!', inline=False)
-            embed.add_field(name='!inv', value='Olhe seu inventario!', inline=False)
-            embed.set_footer(text='Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!')
-            await ctx.message.reply(embed=embed)
-            return
+    if ctx.invoked_subcommand is None:
+        embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
+        embed.add_field(name='!shop buy', value='Fazer suas compras', inline=False)
+        embed.add_field(name='!shop ver', value='Para ver os itens diponiveis', inline=False)
+        embed.add_field(name='!daily', value='Pegue suas recompensas diarias para não ficar zerado!', inline=False)
+        embed.add_field(name='!inv', value='Olhe seu inventario!', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!')
+        await ctx.message.reply(embed=embed)
+        return
 
 @shop.command()
 async def ver(ctx):
     global conn
-    sql = """select
-i.nome, i.preco, i.estoque, i.descricao
-from bot.tbitens i
-where i.ativo = 1""" 
+    sql = """
+        select
+        i.nome, 
+        i.preco, 
+        i.estoque, 
+        i.descricao
+        from bot.tbitens i
+        where i.ativo = 1
+    """ 
     c = conn.cursor() 
     c.execute(sql)
     r = c.fetchall()
@@ -123,13 +128,15 @@ async def buy(ctx, nome, quantidade):
     user_id = ctx.author.id
 
     global conn
-    sql = f"""select 
-u.id_discord,
-m.moedas,
-(select i.preco from bot.tbitens i where i.nome like '{nome}')as preco
-from bot.tbuser u
-join bot.tbmoeda m on m.id_usuario = u.id
-where u.id_discord = {user_id}"""
+    sql = f"""
+        select 
+        u.id_discord,
+        m.moedas,
+        (select i.preco from bot.tbitens i where i.nome like '{nome}')as preco
+        from bot.tbuser u
+        join bot.tbmoeda m on m.id_usuario = u.id
+        where u.id_discord = {user_id}
+    """
 
     c = conn.cursor()
     c.execute(sql)
@@ -160,18 +167,20 @@ async def inv(ctx):
     user_id = ctx.author.id
 
     global conn
-    sql = f"""select
-u.id_discord, 
-i.nome,
-ui.quantidade,
-m.moedas,
-d.descricao
-from bot.tbuser u
-join bot.tbuserinv ui on ui.id_user = u.id
-left join bot.tbitens i on i.id = ui.id_item
-left join bot.tbitens d on i.id = d.descricao
-join bot.tbmoeda m on m.id_usuario = u.id
-where u.id_discord = {user_id}""" 
+    sql = f"""
+        select
+        u.id_discord, 
+        i.nome,
+        ui.quantidade,
+        m.moedas,
+        d.descricao
+        from bot.tbuser u
+        join bot.tbuserinv ui on ui.id_user = u.id
+        left join bot.tbitens i on i.id = ui.id_item
+        left join bot.tbitens d on i.id = d.descricao
+        join bot.tbmoeda m on m.id_usuario = u.id
+        where u.id_discord = {user_id}
+    """ 
 
     c = conn.cursor() 
     c.execute(sql)
@@ -228,7 +237,6 @@ async def daily(ctx):
         cooldown = '{(mktime(datetime.now().timetuple()))}'
         where id_usuario = {r[0][1]}
     """
-
 
 
     c = conn.cursor()
@@ -822,7 +830,11 @@ async def r(ctx, dice: str):
         embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
         await ctx.message.reply(embed=embed)
 
-palavras = ["abacaxi", "banana", "guitarra", "praia", "senha", "rpg", "cryptomoeda", "serra", "mor", "otto", "edgar", "katsuragi", "lucifer", "idril", "shiro", "naato", "servo", "historia", "batata", "banimento", "minecraft", "herobrine", "laninieu", "galaxia", "abóbora", "chocolate", "elefante", "dança", "computador", "sol", "cachorro", "livro", "laranja", "camiseta", "avião", "espelho", "futebol", "pizza", "girafa", "vento", "cama", "tênis", "sushi"]
+palavras = ["abacaxi", "banana", "guitarra", "praia", "senha", "rpg", "cryptomoeda", "serra", "mor", "otto", "edgar",
+            "katsuragi", "lucifer", "idril", "shiro", "naato", "servo", "historia", "batata", "banimento", "minecraft",
+            "herobrine", "laninieu", "galaxia", "abóbora", "chocolate", "elefante", "dança", "computador", "sol", 
+            "cachorro", "livro", "laranja", "camiseta", "avião", "espelho", "futebol", "pizza", "girafa", "vento",
+            "cama", "tênis", "sushi"]
 
 
 def get_random_word():
@@ -924,15 +936,16 @@ async def cancelar(ctx):
 @bot.command()
 async def cantada(ctx):
     cantadas = ["Você não é o Google, mas tem tudo o que eu procuro.",
-"Acredita em amor à primeira vista ou devo passar por aqui mais uma vez?",
-"Ei, você tem um mapa? Porque me perdi no brilho dos seus olhos.",
-"Você é feito de cobre e telúrio? Porque você é Cu-Te!",
-"Se beleza fosse crime, você pegaria prisão perpétua.",
-"Seu pai é astronauta? Porque você é de outro mundo!",
-"Aposto um beijo que você me dá um fora.",
-"Você é um dicionário? Porque quando te vejo, as palavras desaparecem.",
-"Se você fosse um sanduíche, seria um 'x-princesa'.",
-"Meu amor por você é como a constante matemática 'pi': irracional, infinito e impossível de ser calculado."]  
+                "Poderia criar uma religião com você sendo minha deusa",
+                "Acredita em amor à primeira vista ou devo passar por aqui mais uma vez?",
+                "Ei, você tem um mapa? Porque me perdi no brilho dos seus olhos.",
+                "Você é feito de cobre e telúrio? Porque você é Cu-Te!",
+                "Se beleza fosse crime, você pegaria prisão perpétua.",
+                "Seu pai é astronauta? Porque você é de outro mundo!",
+                "Aposto um beijo que você me dá um fora.",
+                "Você é um dicionário? Porque quando te vejo, as palavras desaparecem.",
+                "Se você fosse um sanduíche, seria um 'x-princesa'.",
+                "Meu amor por você é como a constante matemática 'pi': irracional, infinito e impossível de ser calculado."]  
     escolha = random.choice(cantadas)
     await ctx.message.reply(f"{escolha}")
 
@@ -965,7 +978,22 @@ async def carta_error(ctx, error):
 
 @bot.command()
 async def anagrama(ctx):
-    palavras = ['Amor', 'Casa', 'Vida', 'Gato', 'Rato', 'Pato', 'Livro', 'Mesa', 'Cama', 'Flor','Sol', 'Lua', 'Mar', 'Céu', 'Terra', 'Água', 'Fogo', 'Ar', 'Chuva', 'Neve','Vento', 'Laranja', 'Limão', 'Maçã', 'Banana', 'Abacaxi', 'Morango', 'Uva', 'Melancia', 'Mamão','Kiwi', 'Cachorro', 'Gato', 'Passarinho', 'Leão', 'Tigre', 'Elefante', 'Girafa', 'Zebra', 'Cobra','Tartaruga', 'Borboleta', 'Abelha', 'Formiga', 'Mosquito', 'Aranha', 'Escorpião', 'Sapo', 'Peixe', 'Baleia','Tubarão', 'Golfinho', 'Crocodilo', 'Jacaré', 'Águia', 'Falcão', 'Coruja', 'Pinguim', 'Esquilo', 'Raposa','Elefante', 'Rinoceronte', 'Hiena', 'Camaleão', 'Mosca', 'Caracol', 'Barata', 'Veado', 'Cervo', 'Urso','Guaxinim', 'Texugo', 'Castor', 'Canguru', 'Coala', 'Panda', 'Girafa', 'Canguru', 'Gorila', 'Chimpanzé','Orangotango', 'Lagarto', 'Javali', 'Raposa', 'Doninha', 'Lince', 'Rã', 'Grilo', 'Mariposa', 'Louva-a-deus','Morcego', 'Escaravelho', 'Centopeia', 'Tatu', 'Arara', 'Peixe-boi', 'Tamanduá', 'Quati', 'Gazela', 'Mandril','Hipopótamo', 'Quimera', 'Xilofone', 'Epistemologia', 'Obfuscado', 'Zoologia', 'Iconoclasta', 'Escatologia','Procrastinação', 'Abstruso', 'Anacronismo', 'Elocubração', 'Cacofonia', 'Exacerbado', 'Fosforescência','Quinquagésimo', 'Paradoxo', 'Axiomático', 'Filantropia', 'Serendipidade', 'Ambivalente', 'Dissonância','Onomatopeia', 'Paradigma', 'Perspicácia', 'Quotidiano', 'Zeladoria', 'Enigmatizar', 'Imperturbável', 'Ubíquo','Circunloquio', 'Vicissitude', 'Inefável', 'Insondável', 'Ineffugível', 'Inefugível', 'Plenipotenciário','Polimatia', 'Ineficácia', 'Inexorável', 'Indômito', 'Heliocentrismo', 'Querubim', 'Cosmogonia', 'Eclético','Peregrinação', 'Eufemismo', 'Antítese', 'Penumbra', 'Recôndito']
+    palavras = ['Amor', 'Casa', 'Vida', 'Gato', 'Rato', 'Pato', 'Livro', 'Mesa', 'Cama', 'Flor','Sol', 'Lua', 'Mar', 'otorrinolaringologista',
+                'Céu', 'Terra', 'Água', 'Fogo', 'Ar', 'Chuva', 'Neve','Vento', 'Laranja', 'Limão', 'Maçã', 'Banana',
+                'Abacaxi', 'Morango', 'Uva', 'Melancia', 'Mamão','Kiwi', 'Cachorro', 'Gato', 'Passarinho', 'Leão', 
+                'Tigre', 'Elefante', 'Girafa', 'Zebra', 'Cobra','Tartaruga', 'Borboleta', 'Abelha', 'Formiga',
+                'Mosquito', 'Aranha', 'Escorpião', 'Sapo', 'Peixe', 'Baleia','Tubarão', 'Golfinho', 'Crocodilo', 
+                'Jacaré', 'Águia', 'Falcão', 'Coruja', 'Pinguim', 'Esquilo', 'Raposa','Elefante', 'Rinoceronte', 
+                'Hiena', 'Camaleão', 'Mosca', 'Caracol', 'Barata', 'Veado', 'Cervo', 'Urso','Guaxinim', 'Texugo', 
+                'Castor', 'Canguru', 'Coala', 'Panda', 'Girafa', 'Canguru', 'Gorila', 'Chimpanzé','Orangotango', 
+                'Lagarto', 'Javali', 'Raposa', 'Doninha', 'Lince', 'Rã', 'Grilo', 'Mariposa', 'Louva-a-deus','Morcego', 
+                'Escaravelho', 'Centopeia', 'Tatu', 'Arara', 'Peixe-boi', 'Tamanduá', 'Quati', 'Gazela', 'Mandril','Hipopótamo', 
+                'Quimera', 'Xilofone', 'Epistemologia', 'Obfuscado', 'Zoologia', 'Iconoclasta', 'Escatologia','Procrastinação', 
+                'Abstruso', 'Anacronismo', 'Elocubração', 'Cacofonia', 'Exacerbado', 'Fosforescência','Quinquagésimo', 'Paradoxo',
+                'Axiomático', 'Filantropia', 'Serendipidade', 'Ambivalente', 'Dissonância','Onomatopeia', 'Paradigma', 'Perspicácia',
+                'Quotidiano', 'Zeladoria', 'Enigmatizar', 'Imperturbável', 'Ubíquo','Circunloquio', 'Vicissitude', 'Inefável', 'Insondável',
+                'Ineffugível', 'Inefugível', 'Plenipotenciário','Polimatia', 'Ineficácia', 'Inexorável', 'Indômito', 'Heliocentrismo', 'Querubim',
+                'Cosmogonia', 'Eclético','Peregrinação', 'Eufemismo', 'Antítese', 'Penumbra', 'Recôndito']
 
 
     palavra = random.choice(palavras)
