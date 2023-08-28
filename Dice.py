@@ -1120,4 +1120,22 @@ async def censura(ctx):
     estado = "ativada" if censura_servidores[servidor_id] else "desativada"
     await ctx.send(f"Censura foi {estado} neste servidor.")
 
+
+@group.command()
+async def lista(ctx, *, item):
+    lista_de_itens.append(item)
+    await ctx.send(f'{item} foi adicionado à lista.')
+
+@lista.command()
+async def ver(ctx):
+    embed = discord.Embed(
+        title='Lista de Itens',
+        color=discord.Color.green()
+    )
+
+    for idx, item in enumerate(lista_de_itens, start=1):
+        embed.add_field(name=f'Item {idx}', value=item, inline=False)
+
+    await ctx.send(embed=embed)
+    
 bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G8zCE9.TLX0lNAEW-5PZL7lyHmooWBQSzUZo5psRT4Mw8')
