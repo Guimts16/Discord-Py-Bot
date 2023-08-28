@@ -46,6 +46,19 @@ async def on_message(message):
         await message.channel.send(embed=embed)
 
     await bot.process_commands(message)
+msg = ['oi', 'olá', 'ola', 'hi', 'hello']
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    conteudo = message.content.lower()
+    for palavra in msg:
+        if palavra in conteudo:
+            await message.author.send(f"Aoba, tudo bem?")
+            return
+
+    await bot.process_commands(message)
 
 @bot.command(name='help', with_app_command=True)
 async def help(ctx):
@@ -110,25 +123,9 @@ async def ver(ctx):
     embed.set_footer(text='Use !buy e o número do item desejado!')
     await ctx.send(embed=embed)
 
-@shop.command() 
-async def coinset(ctx, moedas=None, users=None):
-    users = ctx.user.mention
-    global conn
-
-    sql = f"""
-    update 
-    bot.tbmoeda     
-    set moedas = {moedas},
-    where id_usuario = {users}
-    """
-    c = conn.cursor() 
-    c.execute(sql)
-    conn.commit()
-
-
-
-
 @shop.command()
+@commands.has_permissions(administrator=True) 
+
 async def delete(ctx, item=None):
     if item is None:
         await ctx.message.reply('Forneça um item para deletar!')
@@ -151,6 +148,7 @@ async def buy(ctx, item, qtd):
 #
 
 @shop.command()
+@commands.has_permissions(administrator=True) 
 async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
     if nome is None or preco is None or estoque is None or desc is None:    
         await ctx.message.reply('Forneça o item, o preço, a quantidade e a descrição!')
@@ -170,6 +168,22 @@ async def myid(ctx):
     user_id = ctx.author.id
     await ctx.send(f"Seu ID de usuário é: {user_id}")
     
+@shop.command()
+@commands.has_permissions(administrator=True) 
+
+async def coinset(ctx, moedas, users):
+    sql =  f"""
+        update 
+        bot.tbmoeda     
+        set moedas = {moedas},
+        where id_usuario = '{users}'
+    """
+    c = conn.cursor() 
+    c.execute(sql)
+    conn.commit()
+
+    await ctx.message.reply(f"Moedas de {users} foram atualizadas para {moedas}")
+
 @bot.command()
 async def inv(ctx):
     user_id = ctx.author.id
@@ -414,6 +428,7 @@ async def divorciar(ctx):
         await ctx.send("Você não está casado!")
 
 @bot.command()
+@commands.has_permissions(administrator=True) 
 async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
     if arg1 is None or arg2 is None or novo_percentual is None:
         await ctx.message.reply("Por favor, forneça os argumentos necessários para a alteração!")
@@ -474,6 +489,9 @@ async def off(ctx):
     global bot_ativo
     if isinstance(ctx.channel, discord.channel.DMChannel) or ctx.author.guild_permissions.administrator:
         bot_ativo = False
+        await ctx.message.reply('Bot desativado.')
+    else:
+        await ctx.message.reply('Você não tem permissão para ativar o bot.')
 
 
 @bot.command()
@@ -516,6 +534,7 @@ async def kick(ctx, member: discord.Member=None, *, reason=None):
     await ctx.message.reply(f'{member.mention} foi expulso.')
 
 @bot.command()
+@commands.has_permissions(administrator=True) 
 async def unban(ctx, member_id: int):
     try:
         banned_users = await ctx.guild.bans()
@@ -1021,5 +1040,84 @@ async def anagrama(ctx):
             await ctx.send(f"Que pena, {ctx.author.mention}. A palavra correta era **{palavra}**.")
     except asyncio.TimeoutError:
         await ctx.send(f"Tempo esgotado! A palavra era: **{palavra}**.")
+
+censura_servidores = {}
+censura_ativada = False
+
+palavras_proibidas = [
+    "caralho",
+    "merda",
+    "puta",
+    "nigger",
+    "macaco",
+    "vadia",
+    "piranha",
+    "bicha",
+    "sapatão",
+    "matar",
+    "machucar",
+    "destruir",
+    "idiota",
+    "imbecil",
+    "porra",
+    "fdp",
+    "arrombado",
+    "filho da puta",
+    "vsfd",
+    "vai se fude",
+    "vai se fuder",
+    "cacete",
+    "fudido",
+    "arrombadinho",
+    "cuzão",
+    "cuzao",
+    "cuzinho",
+    "crlh",
+    "prr",
+    "porno",
+    "pqp",
+    "puta que pariu",
+    "hentai",
+    "xvideos",
+    "pornhub",
+    "porn"
+    "puta q pariu",
+    "p q p",
+    "sexo"
+]
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return  
+
+    servidor_id = message.guild.id  
+
+    censura_ativada = censura_servidores.get(servidor_id, False)
+
+    if censura_ativada:
+        
+        mensagem = message.content.lower()
+
+        for palavra in palavras_proibidas:
+            if palavra in mensagem:
+
+                await message.delete()
+
+                await message.channel.send(f"{message.author.mention} olha a boquinha!!")
+
+    await bot.process_commands(message)
+
+@bot.command()
+@commands.has_permissions(administrator=True) 
+async def censura(ctx):
+    servidor_id = ctx.guild.id  
+    if servidor_id in censura_servidores:
+        censura_servidores[servidor_id] = not censura_servidores[servidor_id]
+    else:
+        censura_servidores[servidor_id] = True
+
+    estado = "ativada" if censura_servidores[servidor_id] else "desativada"
+    await ctx.send(f"Censura foi {estado} neste servidor.")
 
 bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G8zCE9.TLX0lNAEW-5PZL7lyHmooWBQSzUZo5psRT4Mw8')
