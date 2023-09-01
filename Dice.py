@@ -29,7 +29,7 @@ bot.remove_command('help')
 @bot.event
 async def on_ready():
     print(f'LOGADO EM {bot.user}')
-    await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="a"))
+    await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="Minecraft"))
 
 @bot.event
 async def on_message(message):
@@ -44,19 +44,6 @@ async def on_message(message):
             color=discord.Color.red()
         )
         await message.channel.send(embed=embed)
-
-    await bot.process_commands(message)
-msg = ['oi', 'olá', 'ola', 'hi', 'hello']
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    conteudo = message.content.lower()
-    for palavra in msg:
-        if palavra in conteudo:
-            await message.author.send(f"Aoba, tudo bem?")
-            return
 
     await bot.process_commands(message)
 
@@ -810,7 +797,7 @@ async def show(ctx):
         await ctx.send("Não houve valor setado ainda.")
 
 @bot.command()
-async def r(ctx, dice: str):
+async def roll(ctx, dice: str):
     try:
         dice_list = dice.split('#')
         results_list = []
@@ -869,8 +856,8 @@ def get_random_word():
 
 @bot.group()
 async def forca(ctx):
-        if ctx.invoked_subcommand is None:
-            await ctx.send("User 'iniciar' ou 'cancelar'.")
+    if ctx.invoked_subcommand is None:
+        await ctx.send("User 'iniciar' ou 'cancelar'.")
 
 @forca.command()
 async def iniciar(ctx):
@@ -1120,14 +1107,15 @@ async def censura(ctx):
     estado = "ativada" if censura_servidores[servidor_id] else "desativada"
     await ctx.send(f"Censura foi {estado} neste servidor.")
 
+lista_de_itens = []
 
-@group.command()
+@bot.command()
 async def lista(ctx, *, item):
     lista_de_itens.append(item)
     await ctx.send(f'{item} foi adicionado à lista.')
 
-@lista.command()
-async def ver(ctx):
+@bot.command()
+async def listaver(ctx):
     embed = discord.Embed(
         title='Lista de Itens',
         color=discord.Color.green()
@@ -1137,5 +1125,56 @@ async def ver(ctx):
         embed.add_field(name=f'Item {idx}', value=item, inline=False)
 
     await ctx.send(embed=embed)
+
+@bot.command()
+async def r(ctx, dice: str):
+    try:
+        dice_list = dice.split('#')
+
+
+        for dice_entry in dice_list:
+            dice, *positive = re.split(r'\+', dice_entry)
+            dice, *negative = re.split(r'\-', dice)
+            rolls, limit = map(int, dice.split('d'))
+
+            negative_total = sum(int(modifier) for modifier in negative)
+            positive_total = sum(int(modifier) for modifier in positive)
+            modifier_total = sum(int(modifier) for modifier in positive) - sum(int(modifier) for modifier in negative)
+
+            if limit < 1 or limit > 100:
+                await ctx.message.reply('Opa... Você só pode usar os números de 1 a 100!')
+                return
+
+            results = [random.randint(1, limit) for _ in range(rolls)]
+            negative_total = sum(results) - negative_total
+            total = sum(results) + positive_total
+
+            if ctx.author.id in user_settings:
+                fixed_value = user_settings[ctx.author.id]
+                results = [fixed_value] * rolls
+
+            total = sum(results) + modifier_total
+            result_text = ', '.join(str(result) for result in results)
+            embed = discord.Embed(title=':game_die: ʕ •ᴥ•ʔ :game_die:', description='', color=0x740000)
+            embed.add_field(name=f'{result_text}\n TOTAL: {total} <:20:1137750453359214653>', value=f'Adicionado: {modifier_total}', inline=False)
+            await ctx.message.reply(embed=embed)
+
+    except Exception:
+        embed = discord.Embed(title='Algo deu errado. :game_die:', description='Use esse formato:', color=0x740000)
+        embed.add_field(name='!r (Quantidade de dados e Dado desejado [+/- Modificadores] ou 1d20#1d20)', value='1d20 Por exemplo!', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+        await ctx.message.reply(embed=embed)
     
+#peguei do chatgpt dane-se
+@bot.command()
+async def emoji(ctx, emoji_name):
+    if ctx.guild.me.guild_permissions.manage_emojis:
+        emoji = discord.utils.get(ctx.guild.emojis, name=emoji_name)
+        if emoji:
+            await ctx.send(f"O ID do emoji {emoji_name} é {emoji.id}")
+        else:
+            await ctx.send(f"Emoji {emoji_name} não encontrado neste servidor.")
+    else:
+        await ctx.send("O bot não tem permissão para gerenciar emojis.")
+        
 bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G8zCE9.TLX0lNAEW-5PZL7lyHmooWBQSzUZo5psRT4Mw8')
