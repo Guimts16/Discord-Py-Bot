@@ -54,6 +54,7 @@ async def help(ctx):
     embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
     embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
     embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+    embed.add_field(name='!embed <send> ou <info>', value='Pra ficar fofo', inline=False)
     embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
     embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
     embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
@@ -64,6 +65,8 @@ async def help(ctx):
     embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
     embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
     embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
+    embed.add_field(name='!shop', value='Disponivel apenas para os meus RPGs', inline=False)
+
     embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
     await ctx.message.reply(embed=embed)
 
@@ -217,7 +220,7 @@ async def daily(ctx):
         select
         m.moedas,
         u.id,
-        if(UNIX_TIMESTAMP(current_date) - m.cooldown < 86400, 1, 0),
+        if(UNIX_TIMESTAMP(current_date) - m.cooldown < 43200, 1, 0),
         m.cooldown
         from bot.tbuser u
         join bot.tbmoeda m on m.id_usuario = u.id
@@ -230,7 +233,7 @@ async def daily(ctx):
 
 
     if r[0][2] == 1:
-        await ctx.message.reply(f"Você já resgatou seu daily\nUltimo resgate: {datetime.utcfromtimestamp(float(r[0][3])).strftime('%Y-%m-%d %H:%M:%S')}")
+        await ctx.message.reply(f"Você já resgatou seu daily em menos de 12 horas!")
         return
 
     moedas = r[0][0]
@@ -255,7 +258,30 @@ async def daily(ctx):
   
     await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
     
+@bot.command()
+async def teste(ctx):
+    
+    sql = """select
+        i.id_user,
+        i.casado,
+        i.mozinho
+        from bot.tbcasal i
+        where i.id_user = 617362818299199498"""
+    
+    c = conn.cursor() 
+    c.execute(sql)
+    s = c.fetchall()
+    
+    if len(s) > 0:
+            
+        for palavra in s:
+            
+            await ctx.send(f'{palavra[1]}EU BOM')
 
+    else:
+
+        await ctx.send('cu')
+    return
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -1130,6 +1156,7 @@ async def listaver(ctx):
 async def r(ctx, dice: str):
     try:
         dice_list = dice.split('#')
+        result_texts = []
 
 
         for dice_entry in dice_list:
@@ -1137,17 +1164,24 @@ async def r(ctx, dice: str):
             dice, *negative = re.split(r'\-', dice)
             rolls, limit = map(int, dice.split('d'))
 
-            negative_total = sum(int(modifier) for modifier in negative)
-            positive_total = sum(int(modifier) for modifier in positive)
-            modifier_total = sum(int(modifier) for modifier in positive) - sum(int(modifier) for modifier in negative)
 
-            if limit < 1 or limit > 100:
-                await ctx.message.reply('Opa... Você só pode usar os números de 1 a 100!')
+
+            if rolls < 1 or rolls > 60:
+                embed = discord.Embed(title='Algo deu errado. :game_die:', description='', color=0x740000)
+                embed.add_field(name='Número inválido de dados. Use entre 1 e 60 dados.', value='', inline=False)
+                embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+                await ctx.message.reply(embed=embed)
+                return
+
+            if limit < 1 or limit > 1000:
+                embed = discord.Embed(title='Algo deu errado. :game_die:', description='', color=0x740000)
+                embed.add_field(name='Eita, acho que deu um exagero de dados aí ein. Use até 1d1000', value='', inline=False)
+                embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+                await ctx.message.reply(embed=embed)
                 return
 
             results = [random.randint(1, limit) for _ in range(rolls)]
-            negative_total = sum(results) - negative_total
-            total = sum(results) + positive_total
+            modifier_total = sum(int(modifier) for modifier in positive) - sum(int(modifier) for modifier in negative)
 
             if ctx.author.id in user_settings:
                 fixed_value = user_settings[ctx.author.id]
@@ -1155,16 +1189,101 @@ async def r(ctx, dice: str):
 
             total = sum(results) + modifier_total
             result_text = ', '.join(str(result) for result in results)
-            embed = discord.Embed(title=':game_die: ʕ •ᴥ•ʔ :game_die:', description='', color=0x740000)
-            embed.add_field(name=f'{result_text}\n TOTAL: {total} <:20:1137750453359214653>', value=f'Adicionado: {modifier_total}', inline=False)
-            await ctx.message.reply(embed=embed)
+            result_texts.append(f'{result_text}\n TOTAL: {total} <:20:1137750453359214653>\nAdicionado: {modifier_total}')
+
+        response = "\n\n".join(result_texts)
+        embed = discord.Embed(title=':game_die: ʕ •ᴥ•ʔ :game_die:', description='', color=0x740000)
+        embed.add_field(name='Resultados dos dados:', value=response, inline=False)
+        await ctx.message.reply(embed=embed)
 
     except Exception:
         embed = discord.Embed(title='Algo deu errado. :game_die:', description='Use esse formato:', color=0x740000)
         embed.add_field(name='!r (Quantidade de dados e Dado desejado [+/- Modificadores] ou 1d20#1d20)', value='1d20 Por exemplo!', inline=False)
         embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
         await ctx.message.reply(embed=embed)
-    
+        print('Erro')
+
+@bot.command()
+async def rola(ctx, dice: str):
+    try:
+        dice_list = dice.split('#')
+        result_texts = []
+
+
+        for dice_entry in dice_list:
+            dice, *positive = re.split(r'\+', dice_entry)
+            dice, *negative = re.split(r'\-', dice)
+            rolls, limit = map(int, dice.split('md'))
+
+
+
+            if rolls < 1 or rolls > 20:
+                embed = discord.Embed(title='Algo deu errado. :game_die:', description='', color=0x740000)
+                embed.add_field(name='Número inválido de dados. Use entre 1 e 20 dados.', value='', inline=False)
+                embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+                await ctx.message.reply(embed=embed)
+                return
+
+            if limit < 1 or limit > 1000:
+                embed = discord.Embed(title='Algo deu errado. :game_die:', description='', color=0x740000)
+                embed.add_field(name='Eita, acho que deu um exagero de dados aí ein. Use até 1d1000', value='', inline=False)
+                embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+                await ctx.message.reply(embed=embed)
+                return
+
+            results = [random.randint(1, limit) for _ in range(rolls)]
+            modifier_total = sum(int(modifier) for modifier in positive) - sum(int(modifier) for modifier in negative)
+
+            if ctx.author.id in user_settings:
+                fixed_value = user_settings[ctx.author.id]
+                results = [fixed_value] * rolls
+
+            total = sum(results) + modifier_total
+            result_text = f' ⟵ {dice}\n'.join(str(result) for result in results)
+            result_texts.append(f' {result_text} ⟵ {dice} \n TOTAL: {total} <:20:1137750453359214653>\nAdicionado: {modifier_total}')
+            
+        response = "\n\n".join(result_texts)
+        embed = discord.Embed(title=':game_die: ʕ •ᴥ•ʔ :game_die:', description='', color=0x740000)
+        embed.add_field(name=f'Resultados do(s) teu(s) {rolls} dado(s)!', value=response, inline=False)
+        await ctx.message.reply(embed=embed)
+
+    except Exception:
+        embed = discord.Embed(title='Algo deu errado. :game_die:', description='Use esse formato:', color=0x740000)
+        embed.add_field(name='!r (Quantidade de dados e Dado desejado [+/- Modificadores] ou 1d20#1d20)', value='1d20 Por exemplo!', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+        await ctx.message.reply(embed=embed)
+        print('Erro')
+
+
+@bot.group()
+async def embed(ctx):
+    if ctx.invoked_subcommand is None:
+        embed = discord.Embed(title=f'Precisa de ajuda?', description=f'Comandos do Embed:', color=0x740000)
+        embed.add_field(name=f'!embed info', value=f'Aprensetará as informações pra você', inline=False)
+        embed.add_field(name=f'!embed send', value=f'Assim que você enviará suas mensagens', inline=False)
+        await ctx.message.reply(embed=embed)
+
+@embed.command()
+async def send(ctx, canal: discord.TextChannel, *, argumento):
+    partes = re.findall(r'"([^"]*)"', argumento) 
+
+    palavra = partes[0].strip() if partes else ""
+    desc = partes[1].strip() if len(partes) > 1 else ""
+    resto = partes[2].strip() if len(partes) > 2 else ""
+    val = partes[3].strip() if len(partes) > 3 else ""
+    foot = partes[4].strip() if len(partes) > 4 else ""
+
+    embed = discord.Embed(title=f'{palavra}', description=f'{desc}', color=0x740000)
+    embed.add_field(name=f'{resto}', value=f'{val}', inline=False)
+    embed.set_footer(text=f'{foot}')
+    await canal.send(embed=embed)
+
+@embed.command()
+async def info(ctx):
+    embed = discord.Embed(title=f'Precisa de ajuda?', description=f'Como funciona?', color=0x740000)
+    embed.add_field(name=f'!embed send', value=f"Simples! Use ``!embed 'Canal(#canal)', 'Titulo', 'Descrição', 'Corpo', 'Descrição', 'Rodapé'``. Detalhe, não é obrigatorio preencher todos os campos! (COLOQUE ÁSPAS ENTRE AS PALAVRAS, MENOS NO CANAL DESTINO)", inline=False)
+    await ctx.message.reply(embed=embed)
+
 #peguei do chatgpt dane-se
 @bot.command()
 async def emoji(ctx, emoji_name):
@@ -1177,4 +1296,7 @@ async def emoji(ctx, emoji_name):
     else:
         await ctx.send("O bot não tem permissão para gerenciar emojis.")
         
+
+
+
 bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G8zCE9.TLX0lNAEW-5PZL7lyHmooWBQSzUZo5psRT4Mw8')
