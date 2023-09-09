@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 import mysql.connector 
 
+
 conn = mysql.connector.connect(
     user="root",
     password="3141592",
@@ -23,6 +24,9 @@ bot_ativo = True
 intents.typing = False
 intents.presences = False
 
+def ids(ctx):
+    ids = [617362818299199498, 1136393486082523257, 412321977563349004]
+    return ctx.author.id in ids
 
 bot.remove_command('help')
 
@@ -49,6 +53,7 @@ async def on_message(message):
 
 @bot.command(name='help', with_app_command=True)
 async def help(ctx):
+    author = ctx.message.author
     embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
     embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
     embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
@@ -66,10 +71,8 @@ async def help(ctx):
     embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
     embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
     embed.add_field(name='!shop', value='Disponivel apenas para os meus RPGs', inline=False)
-
     embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-    await ctx.message.reply(embed=embed)
-
+    await author.send(embed=embed)
 
 
 @bot.group()
@@ -83,6 +86,12 @@ async def shop(ctx):
         embed.set_footer(text='Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!')
         await ctx.message.reply(embed=embed)
         return
+
+@shop.command()
+@commands.check(ids)
+async def off(ctx):
+    bot.remove_command('shop')
+    await ctx.message.reply(f'O ``Shop`` foi bloqueado. Reinicie o bot para desbloquear!')
 
 @shop.command()
 async def ver(ctx):
@@ -114,8 +123,7 @@ async def ver(ctx):
     await ctx.send(embed=embed)
 
 @shop.command()
-@commands.has_permissions(administrator=True) 
-
+@commands.check(ids)
 async def delete(ctx, item=None):
     if item is None:
         await ctx.message.reply('Forneça um item para deletar!')
@@ -134,11 +142,100 @@ async def delete(ctx, item=None):
 @shop.command()
 async def buy(ctx, item, qtd):
     user_id = ctx.author.id
+    
+    global conn 
+    sql = f"""select 
+        u.id_discord,
+        m.moedas,
+        (select i.preco from bot.tbitens i where i.id = {item})as preco,
+        (select i.nome from bot.tbitens i where i.id = {item}) as nome_item,
+        (select i.estoque from bot.tbitens i where i.id = {item}) as qtd_item,
+        ui.quantidade
+        from bot.tbuser u
+        join bot.tbmoeda m on m.id_usuario = u.id
+        left join bot.tbuserinv ui on ui.id_user = u.id
+        where u.id_discord = {user_id}"""
+    
+    c = conn.cursor() 
+    c.execute(sql)
+    r = c.fetchall()
+    total = int(r[0][2])*int(qtd)
+
+    id_db = r[0][0]
+    moedas_atuais = r[0][1]
+    estoque = r[0][4]
+    qtd_user_inv = r[0][5]
+    id_user = r[0][3]
+    print(r[0][1])
+    print(r[0][2])
+    print(r[0][3])
+    print(r[0][4])
+    print(r[0][5])
+    
+#    preco = r[0][?]
+
+    if int(r[0][1]) >= total:
+        sql = f"""
+            
+            UPDATE bot.tbuserinv
+            set quantidade = {qtd_user_inv + qtd} 
+            where id_user = {id_user} and id_item = {item}
+            
+            """
+        
+        c = conn.cursor()
+        c.execute(sql)
+        conn.commit()
+
+        sql = f"""
+            update bot.tbitens 
+            set estoque = {estoque - qtd}
+            where id = {item}
+            """
+        
+        c = conn.cursor()
+        c.execute(sql)
+        conn.commit()
+
+        await ctx.send(f'Compra feita com sucesso! Você adiquiriu {qtd} de {r[0][3]}.')
+    else:
+        await ctx.send("POBREEEEEEEEEEE") 
+#    
+#          sql = f"""
+#        UPDATE bot.tbuserinv
+#        set quantidade = {qtd_user_inv} + {qtd} 
+#        where id_user = {user_id} and id_item = {item}
+#        """
+#        c = conn.cursor()
+#        c.execute(sql)
+#        conn.commit()
 #
+#        sql = f"""
+#            update bot.tbmoeda 
+#            set moedas = {moedas_atuais} - {preco}
+#            where id_usuario = {user_id}
+#            """
+#        
+#        c = conn.cursor()
+#        c.execute(sql)
+#        conn.commit()
+#
+#        sql = f"""
+#            update bot.tbmoeda 
+#            set moedas = {moedas_atuais} - {preco})
+#            where id_usuario = {user_id}
+#            """
+#        
+#        c = conn.cursor()
+#        c.execute(sql)
+#        conn.commit()
 #
 
+
+
+
 @shop.command()
-@commands.has_permissions(administrator=True) 
+@commands.check(ids)
 async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
     if nome is None or preco is None or estoque is None or desc is None:    
         await ctx.message.reply('Forneça o item, o preço, a quantidade e a descrição!')
@@ -153,29 +250,63 @@ async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
     
     await ctx.message.reply('Item adicionado')
 
+@shop.command()
+async def users(ctx):
+    global conn
+
+    sql = """
+        select
+        u.id,
+        u.id_discord
+        from bot.tbuser u
+        """
+
+    c = conn.cursor() 
+    c.execute(sql)
+    r = c.fetchall()
+
+    embed = discord.Embed(title='LISTA DOS USUARIOS', description='', color=0x740000)
+    if len(r) > 0:
+            
+        for tupla in r:
+            
+            embed.add_field(name=str(tupla[0])+" = "f"<@{tupla[1]}>", value="", inline=False)
+
+    else:
+        embed.add_field(name='**NENHUM USUARIO ENCONTRADO**', value='', inline=False)
+    embed.set_footer(text='IDs dos usuarios!')
+    await ctx.send(embed=embed)
+    
 @bot.command()
 async def myid(ctx):
     user_id = ctx.author.id
     await ctx.send(f"Seu ID de usuário é: {user_id}")
     
 @shop.command()
-@commands.has_permissions(administrator=True) 
-
-async def coinset(ctx, moedas, users):
+@commands.check(ids)
+async def coin(ctx, moedas, users):
+    
+    global conn
     sql =  f"""
         update 
         bot.tbmoeda     
-        set moedas = {moedas},
-        where id_usuario = '{users}'
+        set moedas = {moedas}
+        where id_usuario = {users}
     """
+
     c = conn.cursor() 
     c.execute(sql)
     conn.commit()
 
     await ctx.message.reply(f"Moedas de {users} foram atualizadas para {moedas}")
 
-@bot.command()
+@bot.group()
 async def inv(ctx):
+    if ctx.invoked_subcommand is None:
+        await ctx.message.reply('Por favor use ``!inv ver`` para acessar seu inventario')
+
+@inv.command()
+async def ver(ctx):
     user_id = ctx.author.id
 
     global conn
@@ -210,6 +341,44 @@ async def inv(ctx):
     embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜'"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
     await ctx.send(embed=embed)
     return
+
+@inv.command()
+async def de(ctx, user):
+
+    global conn
+    sql = f"""
+        select
+        u.id_discord, 
+        i.nome,
+        ui.quantidade,
+        m.moedas,
+        d.descricao
+        from bot.tbuser u
+        join bot.tbuserinv ui on ui.id_user = u.id
+        left join bot.tbitens i on i.id = ui.id_item
+        left join bot.tbitens d on i.id = d.descricao
+        join bot.tbmoeda m on m.id_usuario = u.id
+        where u.id_discord = {user}
+    """ 
+
+    c = conn.cursor() 
+    c.execute(sql)
+    s = c.fetchall()
+    embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {user}', color=0x71368A)
+    if len(s) > 0:
+            
+        for palavra in s:
+            
+            embed.add_field(name=''+f" - Item: {palavra[1]}", value=''+f" - Quantidade: {palavra[2]}", inline=False)
+
+    else:
+
+        embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
+    embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜'"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
+    await ctx.send(embed=embed)
+    return
+
+
 
 @bot.command()
 async def daily(ctx):
@@ -257,31 +426,22 @@ async def daily(ctx):
     
   
     await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
-    
+
 @bot.command()
-async def teste(ctx):
-    
-    sql = """select
-        i.id_user,
-        i.casado,
-        i.mozinho
-        from bot.tbcasal i
-        where i.id_user = 617362818299199498"""
+@commands.check(ids)
+async def resetdaily(ctx):
+
+    global conn
+    sql = """update 
+        bot.tbmoeda     
+        set cooldown = 1
+        where id_usuario
+        """
     
     c = conn.cursor() 
     c.execute(sql)
-    s = c.fetchall()
-    
-    if len(s) > 0:
-            
-        for palavra in s:
-            
-            await ctx.send(f'{palavra[1]}EU BOM')
-
-    else:
-
-        await ctx.send('cu')
-    return
+    conn.commit()
+    await ctx.message.reply('Daily resetado!')
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -405,7 +565,7 @@ async def abraço(ctx, member: discord.Member=None):
         await ctx.send(embed=embed)
 
 @bot.command()
-@commands.has_permissions(ban_members=True)
+@commands.check(ids)
 async def banana(ctx, channel_name=None):
     if channel_name is None:
         await ctx.message.reply("Por favor, forneça o nome do novo canal!")
@@ -458,73 +618,6 @@ async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
         await resultado_mudado.delete()
     else:
         await ctx.send("Não há resultado anterior para esses nomes.")
-        
-
-@bot.group()
-async def contagem(ctx):
-    if ctx.invoked_subcommand is None:
-        await ctx.send("Você deve fornecer um subcomando válido, como 'iniciar' ou 'cancelar'.")
-
-@contagem.command()
-async def iniciar(ctx, tempo: int):
-    if tempo <= 0:
-        await ctx.send("O tempo deve ser um valor positivo em segundos.")
-        return
-    
-    countdown_id = ctx.message.author.id 
-    if countdown_id in active_countdowns:
-        await ctx.send("Você já tem uma contagem em andamento.")
-        return
-
-    active_countdowns[countdown_id] = True
-    for i in range(tempo, 0, -1):
-        if countdown_id not in active_countdowns:
-            
-            return
-
-        await ctx.send(f"{i}...")
-        await asyncio.sleep(1)
-    
-    del active_countdowns[countdown_id]
-    await ctx.send("Contagem concluída!")
-
-@contagem.command()
-async def cancelar(ctx):
-    countdown_id = ctx.message.author.id
-    if countdown_id in active_countdowns:
-        del active_countdowns[countdown_id]
-        await ctx.send("Contagem cancelada.")
-    else:
-        await ctx.send("Não há nenhuma contagem em andamento.")
-
-@bot.command()
-async def off(ctx):
-    global bot_ativo
-    if isinstance(ctx.channel, discord.channel.DMChannel) or ctx.author.guild_permissions.administrator:
-        bot_ativo = False
-        await ctx.message.reply('Bot desativado.')
-    else:
-        await ctx.message.reply('Você não tem permissão para ativar o bot.')
-
-
-@bot.command()
-async def on(ctx):
-    global bot_ativo
-    if isinstance(ctx.channel, discord.channel.DMChannel) or ctx.author.guild_permissions.administrator:
-        bot_ativo = True
-        await ctx.message.reply('Bot reativado.')
-    else:
-        await ctx.message.reply('Você não tem permissão para ativar o bot.')
-
-@bot.event
-async def on_message(message):
-    if message.content.startswith('!on'):
-        await bot.process_commands(message)
-    elif bot_ativo:
-        await bot.process_commands(message)
-    else:
-        if message.content.startswith('!'):
-            await message.channel.send('Não estou disponível.')
 
 @bot.command()
 @commands.has_permissions(ban_members=True)
@@ -597,85 +690,10 @@ async def moeda(ctx):
 
     resultado = random.choice(['Cara', 'Coroa'])
     await ctx.message.reply(f":coin: {resultado}!")
-    
-
-def converter_tempo_para_minutos(tempo_str):
-    match = re.match(r'(\d+)\s*([smhd])', tempo_str)
-    if match:
-        quantidade = int(match.group(1))
-        unidade = match.group(2)
-        if unidade == 's':
-            return quantidade / 60  
-        elif unidade == 'm':
-            return quantidade
-        elif unidade == 'h':
-            return quantidade * 60  
-        elif unidade == 'd':
-            return quantidade * 60 * 24  
-    return None
-    
-
-def converter_segundos_para_horas_minutos_segundos(segundos):
-    horas = segundos // 3600
-    segundos %= 3600
-    minutos = segundos // 60
-    segundos %= 60
-    return horas, minutos, segundos
-
-scheduled_commands = {}
-
-@bot.command()
-async def tempo(ctx, tempo_str: str, *, comando: str):
-    minutos = converter_tempo_para_minutos(tempo_str)
-    if minutos is None:
-        await ctx.send(f"Tempo inválido. Use formatos como '1s' (1 segundo), '1m' (1 minuto) ou '1d' (1 dia).")
-        return
-
-    scheduled_commands[ctx.author.id] = (comando, ctx.channel.id, minutos * 60)
-    
-    await ctx.message.reply(f'Comando agendado por {minutos} minutos. Use "!time show" para ver os comandos ativos.')
-
-    await asyncio.sleep(minutos * 60)
-
-    if ctx.author.id in scheduled_commands:
-        del scheduled_commands[ctx.author.id]
-        
-        cmd, *args = comando.split(" ")
-        if cmd:
-            new_ctx = await bot.get_context(ctx.message)
-            new_ctx.message.content = f"{bot.command_prefix}{cmd} {' '.join(args)}"
-            await bot.invoke(new_ctx)
-        else:
-            await ctx.send(f"O comando '{comando}' não está registrado.")
-
-@bot.group(invoke_without_command=True)
-async def time(ctx):
-    await ctx.send("Comando inválido. Use !time show ou !time cancelar <comando>.")
-
-@time.command()
-async def show(ctx):
-    if ctx.author.id in scheduled_commands:
-        cmd, _, tempo_em_segundos = scheduled_commands[ctx.author.id]
-        horas, minutos, segundos = converter_segundos_para_horas_minutos_segundos(tempo_em_segundos)
-        await ctx.send(f"Comando agendado: {cmd}\nTempo restante: {horas}h {minutos}m {segundos}s")
-    else:
-        await ctx.send("Nenhum comando agendado.")
-
-@time.command()
-async def cancelar(ctx, *, cmd_name: str):
-    if ctx.author.id in scheduled_commands:
-        cmd, _, _ = scheduled_commands[ctx.author.id]
-        if cmd_name == cmd:
-            del scheduled_commands[ctx.author.id]
-            await ctx.send(f"Comando '{cmd_name}' cancelado.")
-        else:
-            await ctx.send(f"Comando '{cmd_name}' não coincide com o comando agendado.")
-    else:
-        await ctx.send("Nenhum comando agendado.")
-
 
 @bot.command()
 async def ajuda(ctx):
+    author = ctx.message.author
     embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
     embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
     embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
@@ -692,20 +710,20 @@ async def ajuda(ctx):
     embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
     embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
     embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-    await ctx.send(embed=embed)
+    await author.send(embed=embed)
+
 
 @bot.command()
 @commands.has_permissions(ban_members=True)
 async def adm(ctx):
+    author = ctx.message.author
     embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos de administradores disponíveis:', color=0x740000)
     embed.add_field(name='!clear (quantidade)', value='Deleta aquele monte de conversa do chat.', inline=False)
     embed.add_field(name='!ban (@player)', value='Banido!', inline=False)
     embed.add_field(name='!kick (@player)', value='Expulso!', inline=False)
     embed.add_field(name='!dado (set, unset ou show)', value='Adiciona um número viciado ao dado, retira ou vê qual está setado!', inline=False)
-    embed.add_field(name='!off', value='Incapacita o bot de usar qualquer comando', inline=False)
     embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-    await ctx.send(embed=embed)
-
+    await author.send(embed=embed)
 
 
 @bot.command()
@@ -989,32 +1007,6 @@ async def cantada(ctx):
     escolha = random.choice(cantadas)
     await ctx.message.reply(f"{escolha}")
 
-cartas = 927010543515107429
-
-@bot.command()
-async def carta(ctx, remetente: discord.Member, *, mensagem):
-    canal = bot.get_channel(cartas)
-    
-    user = ctx.author
-    embed = discord.Embed(
-        title=f"Carta Anônima para {remetente.display_name}",
-        description=f"{mensagem}",
-        color=discord.Color.random()
-    )
-    embed.set_footer(text=f"Uiui")
-    embed.set_image(url="https://media.tenor.com/UdiK4V7MxYYAAAAM/anime-girl.gif")
-
-    
-    await canal.send(embed=embed)
-    await ctx.message.delete()
-
-@carta.error
-async def carta_error(ctx, error):
-    if isinstance(error, commands.MissingRequiredArgument):
-        error = await ctx.message.reply("Por favor, forneça o remetente e a mensagem corretamente. Exemplo: `!carta @remetente mensagem`")
-        await asyncio.sleep(5)
-        await error.delete()
-        await ctx.message.delete() 
 
 @bot.command()
 async def anagrama(ctx):
@@ -1099,27 +1091,6 @@ palavras_proibidas = [
     "sexo"
 ]
 
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return  
-
-    servidor_id = message.guild.id  
-
-    censura_ativada = censura_servidores.get(servidor_id, False)
-
-    if censura_ativada:
-        
-        mensagem = message.content.lower()
-
-        for palavra in palavras_proibidas:
-            if palavra in mensagem:
-
-                await message.delete()
-
-                await message.channel.send(f"{message.author.mention} olha a boquinha!!")
-
-    await bot.process_commands(message)
 
 @bot.command()
 @commands.has_permissions(administrator=True) 
@@ -1132,25 +1103,6 @@ async def censura(ctx):
 
     estado = "ativada" if censura_servidores[servidor_id] else "desativada"
     await ctx.send(f"Censura foi {estado} neste servidor.")
-
-lista_de_itens = []
-
-@bot.command()
-async def lista(ctx, *, item):
-    lista_de_itens.append(item)
-    await ctx.send(f'{item} foi adicionado à lista.')
-
-@bot.command()
-async def listaver(ctx):
-    embed = discord.Embed(
-        title='Lista de Itens',
-        color=discord.Color.green()
-    )
-
-    for idx, item in enumerate(lista_de_itens, start=1):
-        embed.add_field(name=f'Item {idx}', value=item, inline=False)
-
-    await ctx.send(embed=embed)
 
 @bot.command()
 async def r(ctx, dice: str):
@@ -1204,7 +1156,7 @@ async def r(ctx, dice: str):
         print('Erro')
 
 @bot.command()
-async def rola(ctx, dice: str):
+async def rolar(ctx, dice: str):
     try:
         dice_list = dice.split('#')
         result_texts = []
@@ -1295,8 +1247,11 @@ async def emoji(ctx, emoji_name):
             await ctx.send(f"Emoji {emoji_name} não encontrado neste servidor.")
     else:
         await ctx.send("O bot não tem permissão para gerenciar emojis.")
-        
+    
+@bot.command()
+@commands.check(ids)
+async def remover(ctx, comando):
+    bot.remove_command(f'{comando}')
+    await ctx.message.reply(f'``!{comando}`` foi removido!')
 
-
-
-bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G8zCE9.TLX0lNAEW-5PZL7lyHmooWBQSzUZo5psRT4Mw8')
+bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G5GE_Y.INjo5BbjUAqDZo0Gt5b36ENsP7g_KxZEUZxGtg')
