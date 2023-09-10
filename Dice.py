@@ -144,93 +144,104 @@ async def buy(ctx, item, qtd):
     user_id = ctx.author.id
     
     global conn 
-    sql = f"""select 
+    if int(qtd) <= 0:
+        await ctx.message.reply('Não é possível comprar um valor menor que 0 itens!')
+        return
+
+    sql = f"""
+        select
+        i.estoque
+        from bot.tbitens i
+        where i.id = {item}
+    """
+
+    c = conn.cursor() 
+    c.execute(sql)
+    r = c.fetchall()
+    c.close()
+    if r[0][0] < int(qtd):
+        await ctx.message.reply(f"A quantidade pedida é maior que no estoque\nEstoque: {r[0][0]} - Pedido: {qtd}")
+        return
+
+    sql = f"""
+        select 
         u.id_discord,
         m.moedas,
         (select i.preco from bot.tbitens i where i.id = {item})as preco,
         (select i.nome from bot.tbitens i where i.id = {item}) as nome_item,
         (select i.estoque from bot.tbitens i where i.id = {item}) as qtd_item,
-        ui.quantidade
+        ui.quantidade,
+        u.id
         from bot.tbuser u
         join bot.tbmoeda m on m.id_usuario = u.id
         left join bot.tbuserinv ui on ui.id_user = u.id
-        where u.id_discord = {user_id}"""
-    
-    c = conn.cursor() 
+        where u.id_discord = {user_id}
+        """
+    c = conn.cursor()
     c.execute(sql)
     r = c.fetchall()
+    c.close()
+    
     total = int(r[0][2])*int(qtd)
 
-    id_db = r[0][0]
+
     moedas_atuais = r[0][1]
     estoque = r[0][4]
     qtd_user_inv = r[0][5]
-    id_user = r[0][3]
-    print(r[0][1])
-    print(r[0][2])
-    print(r[0][3])
-    print(r[0][4])
-    print(r[0][5])
-    
-#    preco = r[0][?]
-
+    id_user_db = r[0][6]
+    print 
     if int(r[0][1]) >= total:
         sql = f"""
-            
-            UPDATE bot.tbuserinv
-            set quantidade = {qtd_user_inv + qtd} 
-            where id_user = {id_user} and id_item = {item}
-            
+            select
+            count(*)
+            from bot.tbuserinv i
+            where i.id_user = {id_user_db} and i.id_item = {item}
+        """
+        c = conn.cursor()
+        c.execute(sql)
+        ct = c.fetchall()
+        c.close()
+        if ct[0][0] > 0:
+            sql = f"""
+                update bot.tbuserinv
+                set quantidade = {qtd_user_inv + int(qtd)} 
+                where id_user = {id_user_db} and id_item = {item}
             """
-        
+
+        else:
+
+            sql = f"""
+                insert into bot.tbuserinv (id_user, id_item, quantidade)
+                values ({id_user_db}, {item}, {qtd})
+            """ 
+
         c = conn.cursor()
         c.execute(sql)
         conn.commit()
-
+        c.close()
         sql = f"""
             update bot.tbitens 
-            set estoque = {estoque - qtd}
+            set estoque = {estoque - int(qtd)}
             where id = {item}
-            """
-        
+        """
         c = conn.cursor()
         c.execute(sql)
         conn.commit()
+        c.close()
+
+        sql = f"""
+            update bot.tbmoeda
+            set moedas = {moedas_atuais} - {total}
+            where id_usuario = {id_user_db}
+        """
+        c = conn.cursor()
+        c.execute(sql)
+        conn.commit()
+        c.close()
 
         await ctx.send(f'Compra feita com sucesso! Você adiquiriu {qtd} de {r[0][3]}.')
     else:
-        await ctx.send("POBREEEEEEEEEEE") 
-#    
-#          sql = f"""
-#        UPDATE bot.tbuserinv
-#        set quantidade = {qtd_user_inv} + {qtd} 
-#        where id_user = {user_id} and id_item = {item}
-#        """
-#        c = conn.cursor()
-#        c.execute(sql)
-#        conn.commit()
-#
-#        sql = f"""
-#            update bot.tbmoeda 
-#            set moedas = {moedas_atuais} - {preco}
-#            where id_usuario = {user_id}
-#            """
-#        
-#        c = conn.cursor()
-#        c.execute(sql)
-#        conn.commit()
-#
-#        sql = f"""
-#            update bot.tbmoeda 
-#            set moedas = {moedas_atuais} - {preco})
-#            where id_usuario = {user_id}
-#            """
-#        
-#        c = conn.cursor()
-#        c.execute(sql)
-#        conn.commit()
-#
-
+        await ctx.send(f'Você não possui dinheiro suficiente pra isso... Suas moedas: {r[0][1]}') 
 
 
 
