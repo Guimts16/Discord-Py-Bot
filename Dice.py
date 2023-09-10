@@ -160,7 +160,10 @@ async def buy(ctx, item, qtd):
     r = c.fetchall()
     c.close()
     if r[0][0] < int(qtd):
-        await ctx.message.reply(f"A quantidade pedida é maior que no estoque\nEstoque: {r[0][0]} - Pedido: {qtd}")
+        embed = discord.Embed(title='COMPRAS', description='Não foi possivel efetuar a compra', color=0x740000)
+        embed.add_field(name=f'A quantidade pedida é maior que a quantidade que há no estoque.', value='Estoque: {r[0][0]} - Pedido: {qtd} ', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
         return
 
     sql = f"""
@@ -238,22 +241,27 @@ async def buy(ctx, item, qtd):
         c.execute(sql)
         conn.commit()
         c.close()
-
-        await ctx.send(f'Compra feita com sucesso! Você adiquiriu {qtd} de {r[0][3]}.')
+        embed = discord.Embed(title='COMPRAS', description='Compra feita com sucesso! ', color=0x740000)
+        embed.add_field(name=f'Você adiquiriu {qtd} de {r[0][3]}.', value='', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
     else:
-        await ctx.send(f'Você não possui dinheiro suficiente pra isso... Suas moedas: {r[0][1]}') 
+        embed = discord.Embed(title='COMPRAS', description='Compra RECUSADA', color=0x740000)
+        embed.add_field(name=f'Você não possui dinheiro suficiente pra isso...', value=f'Suas moedas: {r[0][1]}', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
 
 
 
 @shop.command()
 @commands.check(ids)
-async def add(ctx, nome=None, preco=None, estoque=None, desc=None):
-    if nome is None or preco is None or estoque is None or desc is None:    
-        await ctx.message.reply('Forneça o item, o preço, a quantidade e a descrição!')
+async def add(ctx, nome=None, preco=None, estoque=None, desc=None, value=None):
+    if nome is None or preco is None or estoque is None or desc is None or value is None:    
+        await ctx.message.reply('Forneça o item, o preço, a quantidade, descrição e se o item está ativo!')
         return
 
     global conn
-    sql = f"insert into bot.tbitens(nome, preco, estoque, descricao) values('{str(nome)}',{int(preco)}, {int(estoque)}, '{str(desc)}')"
+    sql = f"insert into bot.tbitens(nome, preco, estoque, descricao, ativo) values('{str(nome)}',{int(preco)}, {int(estoque)}, '{str(desc)}', {int(value)})"
 
     c = conn.cursor() 
     c.execute(sql)
@@ -309,7 +317,11 @@ async def coin(ctx, moedas, users):
     c.execute(sql)
     conn.commit()
 
-    await ctx.message.reply(f"Moedas de {users} foram atualizadas para {moedas}")
+    embed = discord.Embed(title='MOEDAS', description='Alteração de moedas', color=0x740000)
+    embed.add_field(name=f'As moedas do usuario número {users} foram atualizadas para: {moedas}', value='', inline=False)
+    embed.set_footer(text='')
+    await ctx.message.reply(embed=embed)
+
 
 @bot.group()
 async def inv(ctx):
@@ -400,7 +412,7 @@ async def daily(ctx):
         select
         m.moedas,
         u.id,
-        if(UNIX_TIMESTAMP(current_date) - m.cooldown < 43200, 1, 0),
+        if(UNIX_TIMESTAMP(current_date) - m.cooldown < 79200, 1, 0),
         m.cooldown
         from bot.tbuser u
         join bot.tbmoeda m on m.id_usuario = u.id
@@ -413,7 +425,10 @@ async def daily(ctx):
 
 
     if r[0][2] == 1:
-        await ctx.message.reply(f"Você já resgatou seu daily em menos de 12 horas!")
+        embed = discord.Embed(title='Daily JÁ RESGATADO', description='Aguarde 24 horas para pegar novamente!', color=0x740000)
+        embed.add_field(name=f'Você já resgatou seu daily de hoje. Volte amanhã!', value='', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
         return
 
     moedas = r[0][0]
@@ -434,9 +449,11 @@ async def daily(ctx):
     c = conn.cursor()
     c.execute(sql)
     conn.commit()
-    
-  
-    await ctx.message.reply(f"Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}!")
+
+    embed = discord.Embed(title='Daily RESGATADO', description='Aguarde 24 horas para pegar novamente!', color=0x740000)
+    embed.add_field(name=f'Você tinha {moedas}, e ganhou {daily}, agora tem {moedasDaily}', value='', inline=False)
+    embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+    await ctx.message.reply(embed=embed)
 
 @bot.command()
 @commands.check(ids)
