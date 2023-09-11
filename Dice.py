@@ -136,13 +136,89 @@ async def delete(ctx, item=None):
     conn.commit()
     await ctx.message.reply(f'``{item}`` deletado com sucesso!')
 
+@shop.command()
+async def transferir(ctx, transf, user2):
+    user1_id = ctx.author.id
 
+    global conn 
 
+    if int(transf) <= 0:
+        await ctx.message.reply('Não é possível enviar um valor menor que 0 itens!')
+        return
+    sql = f"""
+        select
+        m.moedas
+        from bot.tbmoeda m
+        where m.id_usuario = 7
+        """
+    
+    c = conn.cursor() 
+    c.execute(sql)
+    r = c.fetchall()  
 
+    if r[0][0] < int(transf):
+        embed = discord.Embed(title='COMPRAS', description='Não foi possivel efetuar a compra', color=0x740000)
+        embed.add_field(name=f'A quantidade pedida é maior que a quantidade que há no seu inventario.', value=f'Inventario: {r[0][0]}', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
+        return
+    
+
+    
+    sql = f"""
+                select 
+                (select i.moedas from bot.tbmoeda i where i.id_usuario = 2) as player1_moedas,
+                (select i.id_usuario from bot.tbmoeda i where i.id_usuario = 2) as player1_id,
+                (select i.moedas from bot.tbmoeda i where i.id_usuario = {user2}) as player2_moedas,
+                (select i.id_usuario from bot.tbmoeda i where i.id_usuario = {user2}) as player2_id  
+                from bot.tbmoeda i
+                where i.id_usuario = 2
+            """
+
+    c = conn.cursor() 
+    c.execute(sql)
+    r = c.fetchall()
+    c.close()
+        
+    user1_m = r[0][0]
+    user2_m = r[0][2]  
+    
+    print(2)
+    print(r[0][0])
+    print(0)
+    print(r[0][1])
+    print(1)
+    print(r[0][2])
+    print(2)
+
+    if 100 >= int(transf):
+        sql = f"""
+            update bot.tbmoeda
+            set moedas = {int(user2_m) + int(transf)}
+            where id_usuario = {user2}
+            """
+        c = conn.cursor() 
+        c.execute(sql)
+        r = c.fetchall()
+        c.close()
+
+        sql = f"""
+            update bot.tbmoeda
+            set moedas =  {int(user1_m) - int(transf)}
+            where id_usuario = {user1_id}
+            """
+        c = conn.cursor() 
+        c.execute(sql)
+        r = c.fetchall()
+        c.close()
+        await ctx.message.reply('Transferencia feita com sucesso!')
+    else:
+        await ctx.message.reply('cu')
+#SHOP DE COMPRAS
 @shop.command()
 async def buy(ctx, item, qtd):
     user_id = ctx.author.id
-    
+        
     global conn 
     if int(qtd) <= 0:
         await ctx.message.reply('Não é possível comprar um valor menor que 0 itens!')
@@ -159,9 +235,10 @@ async def buy(ctx, item, qtd):
     c.execute(sql)
     r = c.fetchall()
     c.close()
+
     if r[0][0] < int(qtd):
         embed = discord.Embed(title='COMPRAS', description='Não foi possivel efetuar a compra', color=0x740000)
-        embed.add_field(name=f'A quantidade pedida é maior que a quantidade que há no estoque.', value='Estoque: {r[0][0]} - Pedido: {qtd} ', inline=False)
+        embed.add_field(name=f'A quantidade pedida é maior que a quantidade que há no estoque.', value=f'Estoque: {r[0][0]} - Pedido: {qtd} ', inline=False)
         embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
         await ctx.message.reply(embed=embed)
         return
@@ -192,7 +269,8 @@ async def buy(ctx, item, qtd):
     estoque = r[0][4]
     qtd_user_inv = r[0][5]
     id_user_db = r[0][6]
-    print 
+
+    #se o valor for igual ou maior ao total...
     if int(r[0][1]) >= total:
         sql = f"""
             select
@@ -204,13 +282,14 @@ async def buy(ctx, item, qtd):
         c.execute(sql)
         ct = c.fetchall()
         c.close()
+        #se o jogador tiver o item ele acrescenta
         if ct[0][0] > 0:
             sql = f"""
                 update bot.tbuserinv
                 set quantidade = {qtd_user_inv + int(qtd)} 
                 where id_user = {id_user_db} and id_item = {item}
             """
-
+        #se não ele adiciona um novo
         else:
 
             sql = f"""
@@ -222,6 +301,7 @@ async def buy(ctx, item, qtd):
         c.execute(sql)
         conn.commit()
         c.close()
+        #muda estoque conforme a quantidade comprada
         sql = f"""
             update bot.tbitens 
             set estoque = {estoque - int(qtd)}
@@ -231,7 +311,7 @@ async def buy(ctx, item, qtd):
         c.execute(sql)
         conn.commit()
         c.close()
-
+        #muda as moedas do jogador
         sql = f"""
             update bot.tbmoeda
             set moedas = {moedas_atuais} - {total}
@@ -242,7 +322,7 @@ async def buy(ctx, item, qtd):
         conn.commit()
         c.close()
         embed = discord.Embed(title='COMPRAS', description='Compra feita com sucesso! ', color=0x740000)
-        embed.add_field(name=f'Você adiquiriu {qtd} de {r[0][3]}.', value='', inline=False)
+        embed.add_field(name=f'Você adquiriu {qtd} de {r[0][3]}.', value='', inline=False)
         embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
         await ctx.message.reply(embed=embed)
     else:
