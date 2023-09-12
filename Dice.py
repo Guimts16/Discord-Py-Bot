@@ -137,13 +137,13 @@ async def delete(ctx, item=None):
     await ctx.message.reply(f'``{item}`` deletado com sucesso!')
 
 @shop.command()
-async def transferir(ctx, transf, user2):
+async def t(ctx, transf, user2):
     user1_id = ctx.author.id
 
     global conn 
 
     if int(transf) <= 0:
-        await ctx.message.reply('Não é possível enviar um valor menor que 0 itens!')
+        await ctx.message.reply('Não é possível enviar um valor menor que 0 moedas!')
         return
     sql = f"""
         select
@@ -166,13 +166,14 @@ async def transferir(ctx, transf, user2):
 
     
     sql = f"""
-                select 
-                (select i.moedas from bot.tbmoeda i where i.id_usuario = 2) as player1_moedas,
-                (select i.id_usuario from bot.tbmoeda i where i.id_usuario = 2) as player1_id,
-                (select i.moedas from bot.tbmoeda i where i.id_usuario = {user2}) as player2_moedas,
-                (select i.id_usuario from bot.tbmoeda i where i.id_usuario = {user2}) as player2_id  
-                from bot.tbmoeda i
-                where i.id_usuario = 2
+            select 
+            (select u.id_discord from bot.tbuser u join bot.tbmoeda m on m.id_usuario = u.id where u.id_discord = {user1_id}) as dc,
+            (select i.moedas from bot.tbmoeda i where i.id_usuario = {user1_id}) as player1_moedas,
+            (select i.id_usuario from bot.tbmoeda i where i.id_usuario = {user1_id}) as player1_id,
+            u.id
+            from bot.tbuser u
+            join bot.tbmoeda m on m.id_usuario = u.id
+            where u.id_discord = {user1_id}
             """
 
     c = conn.cursor() 
@@ -191,15 +192,16 @@ async def transferir(ctx, transf, user2):
     print(r[0][2])
     print(2)
 
-    if 100 >= int(transf):
+    if user1_m >= int(transf):
         sql = f"""
             update bot.tbmoeda
             set moedas = {int(user2_m) + int(transf)}
             where id_usuario = {user2}
             """
-        c = conn.cursor() 
+        
+        c = conn.cursor()
         c.execute(sql)
-        r = c.fetchall()
+        conn.commit()
         c.close()
 
         sql = f"""
@@ -207,10 +209,12 @@ async def transferir(ctx, transf, user2):
             set moedas =  {int(user1_m) - int(transf)}
             where id_usuario = {user1_id}
             """
-        c = conn.cursor() 
+        
+        c = conn.cursor()
         c.execute(sql)
-        r = c.fetchall()
+        conn.commit()
         c.close()
+
         await ctx.message.reply('Transferencia feita com sucesso!')
     else:
         await ctx.message.reply('cu')
