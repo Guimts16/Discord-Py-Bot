@@ -17,7 +17,8 @@ conn = mysql.connector.connect(
 )
 
 intents = discord.Intents.default()
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix=['!', 'mts', '.'], intents=intents)
+
 canal_destino = None
 active_countdowns = {} 
 bot_ativo = True
@@ -33,7 +34,7 @@ bot.remove_command('help')
 @bot.event
 async def on_ready():
     print(f'LOGADO EM {bot.user}')
-    await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="Minecraft"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!ajuda"))
 
 @bot.event
 async def on_message(message):
@@ -51,7 +52,13 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-@bot.command(name='help', with_app_command=True)
+
+@bot.command()
+async def ping(ctx):
+    latency = bot.latency * 1000
+    await ctx.message.reply(f'{latency:.2f}ms')
+
+@bot.command()
 async def help(ctx):
     author = ctx.message.author
     embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
@@ -136,88 +143,70 @@ async def delete(ctx, item=None):
     conn.commit()
     await ctx.message.reply(f'``{item}`` deletado com sucesso!')
 
-@shop.command()
-async def t(ctx, transf, user2):
-    user1_id = ctx.author.id
+@shop.command() 
+async def t(ctx, transf, user2): 
+    user1_id = ctx.author.id 
+  
+    global conn  
+  
+    if int(transf) <= 0: 
+         await ctx.message.reply('Não é possível enviar um valor menor que 0 moedas!') 
+         return 
 
-    global conn 
-
-    if int(transf) <= 0:
-        await ctx.message.reply('Não é possível enviar um valor menor que 0 moedas!')
-        return
+    sql = f""" 
+        select 
+        m.moedas 
+        from bot.tbmoeda m 
+        where m.id_usuario = {user1_id}
+    """ 
+  
+    c = conn.cursor()  
+    c.execute(sql) 
+    r = c.fetchall()   
+    moedas_user1 = r[0][0]
+  
+    if moedas_user1 < int(transf): 
+        await ctx.message.reply('Nao eh possivel transferir mais que voce tem')
+        return 
+  
     sql = f"""
-        select
+        select  
         m.moedas
-        from bot.tbmoeda m
-        where m.id_usuario = 7
-        """
-    
-    c = conn.cursor() 
-    c.execute(sql)
-    r = c.fetchall()  
+        from bot.tbuser u 
+        join bot.tbmoeda m on m.id_usuario = u.id 
+        where u.id_discord = {user2} 
+        """ 
+  
+    c = conn.cursor()  
+    c.execute(sql) 
+    r = c.fetchall() 
+    c.close() 
 
-    if r[0][0] < int(transf):
-        embed = discord.Embed(title='COMPRAS', description='Não foi possivel efetuar a compra', color=0x740000)
-        embed.add_field(name=f'A quantidade pedida é maior que a quantidade que há no seu inventario.', value=f'Inventario: {r[0][0]}', inline=False)
-        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
-        await ctx.message.reply(embed=embed)
-        return
-    
+    moedas_user2 = r[0][0]
 
-    
-    sql = f"""
-            select 
-            (select u.id_discord from bot.tbuser u join bot.tbmoeda m on m.id_usuario = u.id where u.id_discord = {user1_id}) as dc,
-            (select i.moedas from bot.tbmoeda i where i.id_usuario = {user1_id}) as player1_moedas,
-            (select i.id_usuario from bot.tbmoeda i where i.id_usuario = {user1_id}) as player1_id,
-            u.id
-            from bot.tbuser u
-            join bot.tbmoeda m on m.id_usuario = u.id
-            where u.id_discord = {user1_id}
-            """
+    sql = f""" 
+        update bot.tbmoeda 
+        set moedas = {moedas_user2 + int(transf)} 
+        where id_usuario = {user2} 
+    """ 
 
     c = conn.cursor() 
-    c.execute(sql)
-    r = c.fetchall()
-    c.close()
-        
-    user1_m = r[0][0]
-    user2_m = r[0][2]  
-    
-    print(2)
-    print(r[0][0])
-    print(0)
-    print(r[0][1])
-    print(1)
-    print(r[0][2])
-    print(2)
-
-    if user1_m >= int(transf):
-        sql = f"""
-            update bot.tbmoeda
-            set moedas = {int(user2_m) + int(transf)}
-            where id_usuario = {user2}
-            """
-        
-        c = conn.cursor()
-        c.execute(sql)
-        conn.commit()
-        c.close()
-
-        sql = f"""
-            update bot.tbmoeda
-            set moedas =  {int(user1_m) - int(transf)}
-            where id_usuario = {user1_id}
-            """
-        
-        c = conn.cursor()
-        c.execute(sql)
-        conn.commit()
-        c.close()
-
-        await ctx.message.reply('Transferencia feita com sucesso!')
-    else:
-        await ctx.message.reply('cu')
+    c.execute(sql) 
+    conn.commit() 
+    c.close() 
+  
+    sql = f""" 
+        update bot.tbmoeda 
+        set moedas =  {moedas_user1 - int(transf)} 
+        where id_usuario = {user1_id} 
+    """ 
+  
+    c = conn.cursor() 
+    c.execute(sql) 
+    conn.commit() 
+    c.close() 
+  
+    await ctx.message.reply('Transferencia feita com sucesso!') 
 #SHOP DE COMPRAS
 @shop.command()
 async def buy(ctx, item, qtd):
@@ -1214,7 +1203,6 @@ async def censura(ctx):
         censura_servidores[servidor_id] = True
 
     estado = "ativada" if censura_servidores[servidor_id] else "desativada"
-    await ctx.send(f"Censura foi {estado} neste servidor.")
 
 @bot.command()
 async def r(ctx, dice: str):
@@ -1277,7 +1265,7 @@ async def rolar(ctx, dice: str):
         for dice_entry in dice_list:
             dice, *positive = re.split(r'\+', dice_entry)
             dice, *negative = re.split(r'\-', dice)
-            rolls, limit = map(int, dice.split('md'))
+            rolls, limit = map(int, dice.split('x'))
 
 
 
