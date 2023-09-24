@@ -843,20 +843,20 @@ async def banlist(ctx):
 
 
 @punish.command()
-async def warn(ctx, member):
+async def warn(ctx, membero):
     global conn 
     
     sql = f"""
         select
         count(*)
         from bot.tbuser u
-        where u.id_discord = {member.replace('<', '').replace('@', '').replace('>', '')}
+        where u.id_discord = {membero.replace('<', '').replace('@', '').replace('>', '')}
         """
         
     c = conn.cursor()
     c.execute(sql)
     r = c.fetchall()
-    id_discord = member.replace('<', '').replace('@', '').replace('>', '')
+    id_discord = membero.replace('<', '').replace('@', '').replace('>', '')
 
     if int(r[0][0]) == 0:
         sql = f"""
@@ -872,6 +872,7 @@ async def warn(ctx, member):
         c.execute(sql)
         conn.commit()
         c.close()
+        await ctx.message.reply("Avisado!")
     else:
 
         sql = f"select u.id from bot.tbuser u where u.id_discord = '{id_discord}'"
@@ -904,9 +905,66 @@ async def warn(ctx, member):
         conn.commit()
         c.close()
         total = avisos + 1
-        embed = discord.Embed(title='AVISOS', description='', color=0x740000)
-        embed.add_field(name=f"{member} foi avisado!", value=f" - Avisos: {total}", inline=False)
-    await ctx.send(embed=embed)
+    
+    embed = discord.Embed(title='AVISOS', description='', color=0x740000)
+    embed.add_field(name=f"Usuario foi avisado!", value=f" - Avisos: {total}", inline=False)
+
+    if total >= 5:
+        embed.add_field(name=f"5 AVISOS", value=f"``!punish mute @jogador``", inline=False)
+
+    if total >= 7:
+        embed.add_field(name=f"7 AVISOS", value=f"``!punish kick @jogador``", inline=False)
+    
+    if total >= 10:
+        embed.add_field(name=f"**10 AVISOS**", value=f"``!punish ban @jogar``", inline=False)
+
+
+    await ctx.send(embed=embed)    
+
+@punish.command()
+async def unwarn(ctx, membro):
+    global conn
+
+    id_discord = membro.replace('<', '').replace('@', '').replace('>', '')
+
+    sql = f"select u.id from bot.tbuser u where u.id_discord = '{id_discord}'"
+    c = conn.cursor()
+    c.execute(sql)
+    rato = c.fetchall()
+    c.close()
+
+    ba = rato[0][0]
+
+    sql = f"""
+    select 
+    (select u.id from bot.tbuser u where u.id_discord = '{id_discord}') as id_user,
+    (select a.id from bot.tbwarn a where a.id_dc = '{ba}') as id_warn,
+    (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn
+    """
+    
+    c = conn.cursor()
+    c.execute(sql)
+    batata = c.fetchall()
+    c.close()
+
+    slk = batata[0][1]
+    avisos = batata[0][2]
+
+    sql = f"""update 
+    bot.tbwarn
+    set avisos = 0
+    where id = {slk}
+    """
+    c = conn.cursor()
+    c.execute(sql)
+    conn.commit()
+    c.close()
+    total = 0
+    
+    embed = discord.Embed(title='PERDÃO', description='', color=0x740000)
+    embed.add_field(name=f"Usuario foi perdoado!", value=f" - Avisos: {total}", inline=False)
+
+    await ctx.send(embed=embed)    
 
 @punish.command()
 async def warns(ctx):
@@ -982,7 +1040,6 @@ async def clear(ctx, quantidade: int=None):
 
 @bot.command()
 async def moeda(ctx):
-
 
     resultado = random.choice(['Cara', 'Coroa'])
     await ctx.message.reply(f":coin: {resultado}!")
