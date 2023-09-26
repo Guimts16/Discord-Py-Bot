@@ -19,14 +19,11 @@ conn = mysql.connector.connect(
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix=['!', 'mts', '.'], intents=intents)
 
-canal_destino = None
-active_countdowns = {} 
-bot_ativo = True
 intents.typing = False
 intents.presences = False
 
 def ids(ctx):
-    ids = [617362818299199498, 1136393486082523257, 412321977563349004]
+    ids = [617362818299199498, 1136393486082523257, 1053694078589603940]
     return ctx.author.id in ids
 
 bot.remove_command('help')
@@ -360,21 +357,42 @@ async def myid(ctx):
 @shop.command()
 @commands.check(ids)
 async def coin(ctx, moedas, users):
-    
+
+    usar = users.replace('<', '').replace('@', '').replace('>','')
     global conn
+
+    sql = f"select id, id_discord from bot.tbuser where id_discord = {usar}"
+
+    c = conn.cursor() 
+    c.execute(sql)
+    s = c.fetchall()
+
+    id = s[0][0]
+
+    sql = f"select moedas from bot.tbmoeda where id_usuario = {id}"
+
+
+    c = conn.cursor() 
+    c.execute(sql)
+    a = c.fetchall()
+    moeda_a = a[0][0]
+
     sql =  f"""
         update 
         bot.tbmoeda     
         set moedas = {moedas}
-        where id_usuario = {users}
+        where id_usuario = {id}
     """
 
     c = conn.cursor() 
     c.execute(sql)
     conn.commit()
 
+
+    moedas_antes = {moeda_a} - {moedas}
+
     embed = discord.Embed(title='MOEDAS', description='Alteração de moedas', color=0x740000)
-    embed.add_field(name=f'As moedas do usuario número {users} foram atualizadas para: {moedas}', value='', inline=False)
+    embed.add_field(name=f'As moedas do usuario foram atualizadas de {moedas_antes} para {moedas}', value='', inline=False)
     embed.set_footer(text='')
     await ctx.message.reply(embed=embed)
 
@@ -703,14 +721,15 @@ async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
     else:
         await ctx.send("Não há resultado anterior para esses nomes.")
 
+
 @bot.group()
 @commands.has_permissions(ban_members=True)
 async def punish(ctx):
     if ctx.invoked_subcommand is None:
-        await ctx.message.reply('Forneça um subcomando')
+        ctx.message.reply('Use algum subcomando! ``ban``, ``kick``, ``warn``, etc.')
         
 @punish.command()
-async def ban(ctx, member: discord.Member=None, *, reason=None):
+async def ban(ctx, member: discord.Member=None, reason=None):
     if ctx.author.guild_permissions.administrator:
         if member is None:
             embed = discord.Embed(title='Ajuda', description='**Punish**', color=0x740000)
@@ -718,12 +737,12 @@ async def ban(ctx, member: discord.Member=None, *, reason=None):
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
             await ctx.message.reply(embed=embed)
             return
-
-        await member.ban(reason=reason)
-        embed = discord.Embed(title='Ban', description='**Punish**', color=0x740000)
-        embed.add_field(name=f'{member.mention} foi banido(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
-        embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-        await ctx.message.reply(embed=embed)
+        else:
+            await member.ban(reason=reason)
+            embed = discord.Embed(title='Ban', description='**Punish**', color=0x740000)
+            embed.add_field(name=f'{member.mention} foi banido(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
+            embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+            await ctx.message.reply(embed=embed)
     else:
         embed = discord.Embed(title='Ajuda', description='**Punish**', color=0x740000)
         embed.add_field(name='Opa, parece que algo deu errado. Você não tem permissão de executar esse comando!', value='', inline=False)
@@ -741,8 +760,9 @@ async def mute(ctx, jogador: discord.Member):
         if cargo_mute is not None:
             await jogador.add_roles(cargo_mute)
             embed = discord.Embed(title='Mute', description='**Punish**', color=0x740000)
-            embed.add_field(name=f'{jogador.mention} foi mutado(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
+            embed.add_field(name=f'Jogador foi mutado(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+            await ctx.message.reply(embed=embed)
         else:
             embed = discord.Embed(title='Ajuda', description='**Punish**', color=0x740000)
             embed.add_field(name='Opa, parece que algo deu errado, verifique se o cargo "mute" existe!', value='', inline=False)
@@ -758,12 +778,11 @@ async def mute(ctx, jogador: discord.Member):
 async def unmute(ctx, jogador: discord.Member):
     if ctx.author.guild_permissions.administrator:
         cargo_mute = discord.utils.get(ctx.guild.roles, name="mute")
+
         if cargo_mute is not None:
             await jogador.remove_roles(cargo_mute)
-
-            
             embed = discord.Embed(title='Unmute', description='**Punish**', color=0x740000)
-            embed.add_field(name=f'{jogador.mention} foi desmutado(a).', value='', inline=False)
+            embed.add_field(name=f'Jogador foi desmutado(a) ou já estava!', value='', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
             await ctx.message.reply(embed=embed)
         else:
@@ -780,20 +799,20 @@ async def unmute(ctx, jogador: discord.Member):
 
 @punish.command()
 @commands.has_permissions(kick_members=True)
-async def kick(ctx, member: discord.Member=None, *, reason=None):
+async def kick(ctx, member: discord.Member=None, reason=None):
     if ctx.author.guild_permissions.administrator:
 
         if member is None:
             embed = discord.Embed(title='Ajuda', description='**Punish**', color=0x740000)
             embed.add_field(name=f'Mencione um jogador válido!', value='!punish kick @jogador', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-            return
-
-        await member.kick(reason=reason)
-        embed = discord.Embed(title='Kick', description='**Punish**', color=0x740000)
-        embed.add_field(name=f'{member.mention} foi expulso(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
-        embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-        await ctx.message.reply(embed=embed)
+            await ctx.message.reply(embed=embed)
+        else:
+            await member.kick(reason=reason)
+            embed = discord.Embed(title='Kick', description='**Punish**', color=0x740000)
+            embed.add_field(name=f'{member} foi expulso(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
+            embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+            await ctx.message.reply(embed=embed)
     else:
         embed = discord.Embed(title='Ajuda', description='**Punish**', color=0x740000)
         embed.add_field(name=f'Você não possui permissão para executar este comando.', value='', inline=False)
@@ -841,11 +860,19 @@ async def banlist(ctx):
     else:
         await ctx.send('Você não tem permissão para usar este comando.')
 
-
+async def on_message(self, message):
+        if message.content.startswith("!punish avisar"):
+            mensagem = message.content[len("!punish avisar"):]
+            if mensagem.startswith("\"") and mensagem.endswith("\""):
+                mensagem = mensagem[1:-1]
+            else:
+                mensagem = None
+            if mensagem is not None:
+                self.comando(mensagem)
 @punish.command()
-async def warn(ctx, membero):
+async def avisar(ctx, membero, motivo):
     global conn 
-    
+
     sql = f"""
         select
         count(*)
@@ -872,7 +899,6 @@ async def warn(ctx, membero):
         c.execute(sql)
         conn.commit()
         c.close()
-        await ctx.message.reply("Avisado!")
     else:
 
         sql = f"select u.id from bot.tbuser u where u.id_discord = '{id_discord}'"
@@ -885,7 +911,8 @@ async def warn(ctx, membero):
         select 
         (select u.id from bot.tbuser u where u.id_discord = '{id_discord}') as id_user,
         (select a.id from bot.tbwarn a where a.id_dc = '{ba}') as id_warn,
-        (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn
+        (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn,
+        (select a.motivos from bot.tbwarn a where a.id_dc = '{ba}') as motivo
         """
         c = conn.cursor()
         c.execute(sql)
@@ -904,10 +931,22 @@ async def warn(ctx, membero):
         c.execute(sql)
         conn.commit()
         c.close()
+        if not motivo:
+            sql = f"UPDATE bot.tbwarn SET motivos = 'Motivo não informado' WHERE id = {slk}"
+            c = conn.cursor()
+            c.execute(sql)
+            conn.commit()
+            c.close()
+        else: 
+            sql = f"UPDATE bot.tbwarn SET motivos = '{motivo}' WHERE id = {slk}"
+            c = conn.cursor()
+            c.execute(sql)
+            conn.commit()
+            c.close()
         total = avisos + 1
     
     embed = discord.Embed(title='AVISOS', description='', color=0x740000)
-    embed.add_field(name=f"Usuario foi avisado!", value=f" - Avisos: {total}", inline=False)
+    embed.add_field(name=f"Usuario foi avisado!", value=f" - Avisos: {total}\n - Motivo: {motivo}", inline=False)
 
     if total >= 5:
         embed.add_field(name=f"5 AVISOS", value=f"``!punish mute @jogador``", inline=False)
@@ -922,7 +961,7 @@ async def warn(ctx, membero):
     await ctx.send(embed=embed)    
 
 @punish.command()
-async def unwarn(ctx, membro):
+async def perdoar(ctx, membro):
     global conn
 
     id_discord = membro.replace('<', '').replace('@', '').replace('>', '')
@@ -939,7 +978,8 @@ async def unwarn(ctx, membro):
     select 
     (select u.id from bot.tbuser u where u.id_discord = '{id_discord}') as id_user,
     (select a.id from bot.tbwarn a where a.id_dc = '{ba}') as id_warn,
-    (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn
+    (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn,
+    (select a.motivos from bot.tbwarn a where a.id_dc = '{ba}') as MOTIVOS
     """
     
     c = conn.cursor()
@@ -949,7 +989,7 @@ async def unwarn(ctx, membro):
 
     slk = batata[0][1]
     avisos = batata[0][2]
-
+    motivos = batata[0][3]
     sql = f"""update 
     bot.tbwarn
     set avisos = 0
@@ -959,43 +999,70 @@ async def unwarn(ctx, membro):
     c.execute(sql)
     conn.commit()
     c.close()
+
+    sql = f"UPDATE bot.tbwarn SET motivos = 'Nenhum' WHERE id = {slk}"
+    c = conn.cursor()
+    c.execute(sql)
+    conn.commit()
+    c.close()
+
     total = 0
     
     embed = discord.Embed(title='PERDÃO', description='', color=0x740000)
-    embed.add_field(name=f"Usuario foi perdoado!", value=f" - Avisos: {total}", inline=False)
+    embed.add_field(name=f"Usuario foi perdoado!", value=f" - Avisos: {total}\n - Motivo recente: Nenhum", inline=False)
 
     await ctx.send(embed=embed)    
 
 @punish.command()
-async def warns(ctx):
+async def avisos(ctx, member):
     global conn 
     sql = f"""
-        SELECT
-        id_discord
-        FROM
-        bot.tbuser;
-        SELECT
-        avisos
-        FROM
-        bot.tbwarn
+        select
+        count(*)
+        from bot.tbuser u
+        where u.id_discord = {member.replace('<', '').replace('@', '').replace('>', '')}
         """
     
+    disc = member.replace('<', '').replace('@', '').replace('>', '')
     c = conn.cursor()
     c.execute(sql)
     r = c.fetchall()
+    
+    embed = discord.Embed(title='AVISOS', description=f'', color=0x740000)        
+    if int(r[0][0]) == 1:
 
-    ids = r[0][0]
-    avisos = r[0][1]
-    print(ids)
-    print(avisos)
-    embed = discord.Embed(title='AVISOS', description='', color=0x740000)
-    if len(r) > 0:
-            
-        for tupla in r:
-            
-            embed.add_field(name="Nome: "+tupla[0], value=f" - Avisos: {tupla[1]}", inline=False)
+        sql = f"select u.id from bot.tbuser u where u.id_discord = '{disc}'"
+        c = conn.cursor()
+        c.execute(sql)
+        rato = c.fetchall()
+        c.close()
+        ba = rato[0][0]
+
+        sql = f"""
+        select 
+        (select u.id from bot.tbuser u where u.id_discord = '{disc}') as id_user,
+        (select a.id from bot.tbwarn a where a.id_dc = '{ba}') as id_warn,
+        (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn,
+        (select a.motivos from bot.tbwarn a where a.id_dc = '{ba}') as avisos
+        """
+        c = conn.cursor()
+        c.execute(sql)
+        batata = c.fetchall()
+        c.close()
+        aviso = batata[0][2]
+        motivo_rec = batata[0][3]
+        total = aviso + 1 
+        embed.add_field(name=f"Este jogador tem:", value=f" - Avisos: {aviso} \n- Motivo recente: {motivo_rec}", inline=False)
+
+        if total >= 5:
+            embed.add_field(name=f"5 AVISOS", value=f"``!punish mute @jogador``", inline=False)
+
+        if total >= 7:
+            embed.add_field(name=f"7 AVISOS", value=f"``!punish kick @jogador``", inline=False)
+        
+        if total >= 10:
+            embed.add_field(name=f"**10 AVISOS**", value=f"``!punish ban @jogar``", inline=False)
             embed.add_field(name="•——◤✧◥——•", value="", inline=False)
-
     else:
         embed.add_field(name='**Nada encontrado**', value='', inline=False)
     await ctx.send(embed=embed)
@@ -1007,7 +1074,7 @@ async def warns(ctx):
 @bot.command()
 async def teste(ctx, wubba, member: discord.Member=None ):
     await ctx.message.reply(f'Você mencionou {member}')
-    await ctx.send(f"{wubba.replace('<', 'x', 1)}")
+    await ctx.send(f"{wubba.replace('<', 'gay', 1)}")
 
 @bot.command()
 async def escolher(ctx, *alternativas):
@@ -1405,62 +1472,7 @@ async def anagrama(ctx):
     except asyncio.TimeoutError:
         await ctx.send(f"Tempo esgotado! A palavra era: **{palavra}**.")
 
-censura_servidores = {}
-censura_ativada = False
 
-palavras_proibidas = [
-    "caralho",
-    "merda",
-    "puta",
-    "nigger",
-    "macaco",
-    "vadia",
-    "piranha",
-    "bicha",
-    "sapatão",
-    "matar",
-    "machucar",
-    "destruir",
-    "idiota",
-    "imbecil",
-    "porra",
-    "fdp",
-    "arrombado",
-    "filho da puta",
-    "vsfd",
-    "vai se fude",
-    "vai se fuder",
-    "cacete",
-    "fudido",
-    "arrombadinho",
-    "cuzão",
-    "cuzao",
-    "cuzinho",
-    "crlh",
-    "prr",
-    "porno",
-    "pqp",
-    "puta que pariu",
-    "hentai",
-    "xvideos",
-    "pornhub",
-    "porn"
-    "puta q pariu",
-    "p q p",
-    "sexo"
-]
-
-
-@bot.command()
-@commands.has_permissions(administrator=True) 
-async def censura(ctx):
-    servidor_id = ctx.guild.id  
-    if servidor_id in censura_servidores:
-        censura_servidores[servidor_id] = not censura_servidores[servidor_id]
-    else:
-        censura_servidores[servidor_id] = True
-
-    estado = "ativada" if censura_servidores[servidor_id] else "desativada"
 
 @bot.command()
 async def r(ctx, dice: str):
