@@ -62,6 +62,37 @@ async def ping(ctx):
     await asyncio.sleep(0.5)
     await mensagem1.edit(content=f'PING: {latency:.1f}ms')
 
+@bot.command()
+async def login(ctx, user):
+    global conn
+    userid = user.replace('<', '').replace('@', '').replace('>', '')
+    sql_check = f"SELECT id, id_discord from bot.tbuser WHERE id_discord = {userid}"
+    c = conn.cursor() 
+    c.execute(sql_check)
+    r = c.fetchall()
+
+    if r:  # Verifica se há resultados na lista (usuário já existe)
+        await ctx.message.reply('Usuário já logado!')
+    else:
+
+        sql_insert = f"INSERT INTO bot.tbuser (id_discord) VALUES ({userid})"
+        c = conn.cursor() 
+        c.execute(sql_insert)
+        conn.commit()
+
+        sql_select = f"SELECT id, id_discord from bot.tbuser WHERE id_discord = {userid}"
+        c = conn.cursor() 
+        c.execute(sql_select)
+        r = c.fetchall()
+        id = r[0][0]
+        id_disc = r[0][1]
+
+        sql_insert_moeda = f"INSERT INTO bot.tbmoeda (id_usuario, moedas, cooldown) VALUES ({id}, 0, 1)"
+        c = conn.cursor() 
+        c.execute(sql_insert_moeda)
+        conn.commit()
+
+        await ctx.message.reply(f'{user} logado na loja!')
 
 @bot.command()
 async def help(ctx):
@@ -102,7 +133,7 @@ async def shop(ctx):
 @shop.command()
 @commands.check(ids)
 async def off(ctx):
-    bot.remove_command('shop')
+    bot.remove_command('shop buy')
     await ctx.message.reply(f'O ``Shop`` foi bloqueado. Reinicie o bot para desbloquear!')
 
 @shop.command()
@@ -140,8 +171,8 @@ async def delete(ctx, item=None):
     if item is None:
         await ctx.message.reply('Forneça um item para deletar!')
         return
-    
     global conn
+
     sql = f"delete from bot.tbitens where nome = '{item}'"
     c = conn.cursor() 
     c.execute(sql)
@@ -149,61 +180,69 @@ async def delete(ctx, item=None):
     await ctx.message.reply(f'``{item}`` deletado com sucesso!')
 
 @shop.command() 
-async def t(ctx, transf, user2): 
+async def tr(ctx, transf, user2): 
     user1_id = ctx.author.id 
-  
+    user2id = user2.replace('<', '').replace('@', '').replace('>', '')
     global conn  
   
     if int(transf) <= 0: 
-        await ctx.message.reply('Não é possível enviar um valor menor que 0 moedas!') 
+        embed = discord.Embed(title='TRANSFERENCIA', description='Não foi possivel efetuar a trasnferencia', color=0x740000)
+        embed.add_field(name=f'Impossivel tranferir um valor menor que 0.', value=f'Pensa né, lerdão...', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
         return 
-
     sql = f""" 
-        select 
-        m.moedas 
-        from bot.tbmoeda m 
-        where m.id_usuario = {user1_id}
+        select  
+        m.moedas,
+        m.id
+        from bot.tbuser u 
+        join bot.tbmoeda m on m.id_usuario = u.id 
+        where u.id_discord = '{user1_id}' 
     """ 
   
     c = conn.cursor()  
     c.execute(sql) 
     r = c.fetchall()   
     moedas_user1 = r[0][0]
-  
+    id_1 = r[0][1]
+
     if moedas_user1 < int(transf): 
-        await ctx.message.reply('Nao eh possivel transferir mais que voce tem')
+        embed = discord.Embed(title='TRANSFERENCIA', description='Não foi possivel efetuar a trasnferencia', color=0x740000)
+        embed.add_field(name=f'A quantidade que deseja dar é maior que a que você tem.', value=f'Suas moedas: {moedas_user1}\n- Pedido: {transf} moedas', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
         return 
-  
-    sql = f""" 
-        select  
-        m.moedas
-        from bot.tbuser u 
-        join bot.tbmoeda m on m.id_usuario = u.id 
-        where u.id_discord = {user2} 
-    """ 
-  
-    c = conn.cursor()  
-    c.execute(sql) 
-    r = c.fetchall() 
-    c.close() 
+    
+    sql = f"select id, id_discord from bot.tbuser where id_discord = {user2id}"
 
-    moedas_user2 = r[0][0]
-
-    sql = f""" 
-        update bot.tbmoeda 
-        set moedas = {moedas_user2 + int(transf)} 
-        where id_usuario = {user2} 
-    """ 
-  
     c = conn.cursor() 
-    c.execute(sql) 
-    conn.commit() 
-    c.close() 
-  
+    c.execute(sql)
+    s = c.fetchall()
+    id = s[0][0]
+
+    sql = f"select moedas from bot.tbmoeda where id_usuario = {id}"
+
+    c = conn.cursor() 
+    c.execute(sql)
+    a = c.fetchall()
+    moeda_a = a[0][0]
+
+    sql =  f"""
+        update 
+        bot.tbmoeda     
+        set moedas = {moeda_a + int(transf)}
+        where id_usuario = {id}
+    """
+
+    c = conn.cursor() 
+    c.execute(sql)
+    conn.commit()
+    
+
     sql = f""" 
         update bot.tbmoeda 
         set moedas =  {moedas_user1 - int(transf)} 
-        where id_usuario = {user1_id} 
+        where id_usuario = {id_1} 
     """ 
   
     c = conn.cursor() 
@@ -211,7 +250,11 @@ async def t(ctx, transf, user2):
     conn.commit() 
     c.close() 
   
-    await ctx.message.reply('Transferencia feita com sucesso!') 
+    embed = discord.Embed(title='TRANSFERENCIA', description='Feito!', color=0x740000)
+    embed.add_field(name=f'Você enviou {transf} moedas para o jogador!', value=f'Suas moedas: {moedas_user1 - int(transf)}\n Jogador: {moeda_a + int(transf)}', inline=False)
+    embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+    await ctx.message.reply(embed=embed)
+
 #SHOP DE COMPRAS
 @shop.command()
 async def buy(ctx, item, qtd):
@@ -430,7 +473,7 @@ async def ver(ctx):
             
         for palavra in s:
             
-            embed.add_field(name=''+f" - Item: {palavra[1]}", value=''+f" - Quantidade: {palavra[2]}", inline=False)
+            embed.add_field(name=''+f" - Item: {palavra[1]}\n", value=''+f" - Quantidade: {palavra[2]}", inline=False)
 
     else:
 
@@ -556,7 +599,6 @@ async def on_command_error(ctx, error):
         await ctx.message.reply(embed=embed)
     else:
         print(f'Erro durante a execucao do comando: {error}')
-
 
 ship_results = {}
     
@@ -726,7 +768,7 @@ async def alterar(ctx, arg1=None, arg2=None, novo_percentual=None):
 @commands.has_permissions(ban_members=True)
 async def punish(ctx):
     if ctx.invoked_subcommand is None:
-        ctx.message.reply('Use algum subcomando! ``ban``, ``kick``, ``warn``, etc.')
+        await ctx.message.reply('Use algum subcomando! ``ban``, ``kick``, ``warn``, etc.')
         
 @punish.command()
 async def ban(ctx, member: discord.Member=None, reason=None):
@@ -740,7 +782,7 @@ async def ban(ctx, member: discord.Member=None, reason=None):
         else:
             await member.ban(reason=reason)
             embed = discord.Embed(title='Ban', description='**Punish**', color=0x740000)
-            embed.add_field(name=f'{member.mention} foi banido(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
+            embed.add_field(name=f'O jogador foi banido(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
             await ctx.message.reply(embed=embed)
     else:
@@ -760,7 +802,7 @@ async def mute(ctx, jogador: discord.Member):
         if cargo_mute is not None:
             await jogador.add_roles(cargo_mute)
             embed = discord.Embed(title='Mute', description='**Punish**', color=0x740000)
-            embed.add_field(name=f'Jogador foi mutado(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
+            embed.add_field(name=f'o jogador foi mutado(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
             await ctx.message.reply(embed=embed)
         else:
@@ -782,7 +824,7 @@ async def unmute(ctx, jogador: discord.Member):
         if cargo_mute is not None:
             await jogador.remove_roles(cargo_mute)
             embed = discord.Embed(title='Unmute', description='**Punish**', color=0x740000)
-            embed.add_field(name=f'Jogador foi desmutado(a) ou já estava!', value='', inline=False)
+            embed.add_field(name=f'O jogador foi desmutado(a) ou já estava!', value='', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
             await ctx.message.reply(embed=embed)
         else:
@@ -810,7 +852,7 @@ async def kick(ctx, member: discord.Member=None, reason=None):
         else:
             await member.kick(reason=reason)
             embed = discord.Embed(title='Kick', description='**Punish**', color=0x740000)
-            embed.add_field(name=f'{member} foi expulso(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
+            embed.add_field(name=f'O jogador foi expulso(a)! Ninguém mandou fazer coisa errada!!', value='', inline=False)
             embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
             await ctx.message.reply(embed=embed)
     else:
@@ -829,7 +871,7 @@ async def unban(ctx, member_id: int):
                 embed = discord.Embed(title='Unban', description='**Punish**', color=0x740000)
                 embed.add_field(name=f'Usuário desbanido.\nID: {member_id}', value='', inline=False)
                 embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-                ctx.message.reply(embed=embed)
+                await ctx.message.reply(embed=embed)
                 return
         
         if member_id not in banned_users:
@@ -945,6 +987,7 @@ async def avisar(ctx, membero, motivo):
             c.close()
         total = avisos + 1
     
+
     embed = discord.Embed(title='AVISOS', description='', color=0x740000)
     embed.add_field(name=f"Usuario foi avisado!", value=f" - Avisos: {total}\n - Motivo: {motivo}", inline=False)
 
@@ -959,7 +1002,7 @@ async def avisar(ctx, membero, motivo):
 
 
     await ctx.send(embed=embed)    
-
+    
 @punish.command()
 async def perdoar(ctx, membro):
     global conn
