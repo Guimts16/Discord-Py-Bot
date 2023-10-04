@@ -63,7 +63,12 @@ async def ping(ctx):
     await mensagem1.edit(content=f'PING: {latency:.1f}ms')
 
 @bot.command()
-async def login(ctx, user):
+async def login(ctx, user=None):
+    if user is None:
+        embed = discord.Embed(title='LOGIN', description='**ERRO**', color=0x740000)
+        embed.add_field(name='Por favor forneça um usuario do discord para que possa ser adicionado', value='', inline=False)
+        await ctx.message.reply(embed=embed)
+
     global conn
     userid = user.replace('<', '').replace('@', '').replace('>', '')
     sql_check = f"SELECT id, id_discord from bot.tbuser WHERE id_discord = {userid}"
@@ -71,8 +76,10 @@ async def login(ctx, user):
     c.execute(sql_check)
     r = c.fetchall()
 
-    if r:  # Verifica se há resultados na lista (usuário já existe)
-        await ctx.message.reply('Usuário já logado!')
+    if r:
+        embed = discord.Embed(title='LOGIN', description='**ERRO**', color=0x740000)
+        embed.add_field(name='Usuario já logado em nossa loja!', value=f'ID do usuario: {userid}', inline=False)
+        await ctx.message.reply(embed=embed)
     else:
 
         sql_insert = f"INSERT INTO bot.tbuser (id_discord) VALUES ({userid})"
@@ -85,14 +92,15 @@ async def login(ctx, user):
         c.execute(sql_select)
         r = c.fetchall()
         id = r[0][0]
-        id_disc = r[0][1]
 
         sql_insert_moeda = f"INSERT INTO bot.tbmoeda (id_usuario, moedas, cooldown) VALUES ({id}, 0, 1)"
         c = conn.cursor() 
         c.execute(sql_insert_moeda)
         conn.commit()
 
-        await ctx.message.reply(f'{user} logado na loja!')
+        embed = discord.Embed(title='LOGIN', description='ERRO', color=0x740000)
+        embed.add_field(name='Usuario logado com sucesso! Já pode começar usando o ``!daily``', value=f'ID do usuario: {userid}', inline=False)
+        await ctx.message.reply(embed=embed)
 
 @bot.command()
 async def help(ctx):
@@ -122,10 +130,11 @@ async def help(ctx):
 async def shop(ctx):
     if ctx.invoked_subcommand is None:
         embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-        embed.add_field(name='!shop buy', value='Fazer suas compras', inline=False)
+        embed.add_field(name='!shop buy <id do item> <quantidade>', value='Fazer suas compras', inline=False)
         embed.add_field(name='!shop ver', value='Para ver os itens diponiveis', inline=False)
         embed.add_field(name='!daily', value='Pegue suas recompensas diarias para não ficar zerado!', inline=False)
-        embed.add_field(name='!inv', value='Olhe seu inventario!', inline=False)
+        embed.add_field(name='!inv <ver> ou <de @user>', value='Olhe seu inventario!', inline=False)
+        embed.add_field(name='!login <@user>', value='Para fazer login de jogadores que ainda não estão na loja!')
         embed.set_footer(text='Para mais informações, manda mensagem para o Guimts. Por enquanto alguns comandos ainda estão em desenvolvimento!')
         await ctx.message.reply(embed=embed)
         return
@@ -133,8 +142,8 @@ async def shop(ctx):
 @shop.command()
 @commands.check(ids)
 async def off(ctx):
-    bot.remove_command('shop buy')
-    await ctx.message.reply(f'O ``Shop`` foi bloqueado. Reinicie o bot para desbloquear!')
+    shop.remove_command('buy')
+    await ctx.message.reply(f'A ``Loja`` foi bloqueada. Reinicie o bot para desbloquear!')
 
 @shop.command()
 async def ver(ctx):
