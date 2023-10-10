@@ -6,6 +6,7 @@ import asyncio
 import re
 from datetime import datetime
 import mysql.connector 
+import calendar
 
 
 conn = mysql.connector.connect(
@@ -62,6 +63,71 @@ async def ping(ctx):
     await asyncio.sleep(0.5)
     await mensagem1.edit(content=f'PING: {latency:.1f}ms')
 
+
+@bot.command()
+async def profile(ctx):
+    global conn
+    sql = f"SELECT id, id_discord FROM bot.tbuser WHERE id_discord = {ctx.author.id}"
+    c = conn.cursor() 
+    c.execute(sql)
+    r = c.fetchall()
+
+    embed = discord.Embed(title='Perfil', description=f'{ctx.author.mention}', color=0x740000)
+    if len(r) > 0:
+            
+        for palavra in r:
+            sql = f"""
+                select
+                u.id_discord, 
+                m.moedas
+                from bot.tbuser u
+                join bot.tbmoeda m on m.id_usuario = u.id
+                where u.id_discord = {ctx.author.id}"""
+            c = conn.cursor() 
+            c.execute(sql)
+            h = c.fetchall()
+            embed.add_field(name='Login: Online', value=f'- ID: {palavra[1]}', inline=False)
+            embed.add_field(name=f'Moedas: ', value=f'- {h[0][1]}', inline=False)
+
+            sql = f"select u.id from bot.tbuser u where u.id_discord = '{ctx.author.id}'"
+            c = conn.cursor()
+            c.execute(sql)
+            rato = c.fetchall()
+            c.close()
+            ba = rato[0][0]
+            sql = f"""
+            select 
+            (select u.id from bot.tbuser u where u.id_discord = '{ctx.author.id}') as id_user,
+            (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn,
+            (select a.motivos from bot.tbwarn a where a.id_dc = '{ba}') as motivo
+            """
+            c = conn.cursor()
+            c.execute(sql)
+            he = c.fetchall()
+            c.close()            
+            embed.add_field(name=f'Avisos:', value=f'- {he[0][1]}\n- Motivo recente: {he[0][2]}', inline=False)
+
+    else:
+
+        embed.add_field(name='Login: Offline', value=f'Caso queria logar use ``!login @{ctx.author.name}``', inline=False)
+
+    if len(ctx.author.roles) == 1:
+        embed.add_field(name=f'Cargos:', value='- Nenhum cargo', inline=False)
+    else:
+        roles = [role.name for role in ctx.author.roles[1:]] 
+        roles_text = ', '.join(roles)
+        embed.add_field(name=f'Cargos:\n- {roles_text}', value=f'', inline=False)
+    
+    criado = ctx.author.created_at.strftime("%d de %B de %Y")
+
+    embed.add_field(name=f'No discord desde:', value=f'- {criado}', inline=False)
+
+    embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜', value=f'', inline=False)
+
+    await ctx.send(embed=embed)
+
+
+
 @bot.command()
 async def login(ctx, user=None):
     if user is None:
@@ -93,12 +159,22 @@ async def login(ctx, user=None):
         r = c.fetchall()
         id = r[0][0]
 
-        sql_insert_moeda = f"INSERT INTO bot.tbmoeda (id_usuario, moedas, cooldown) VALUES ({id}, 0, 1)"
+        sql_moeda = f"INSERT INTO bot.tbmoeda (id_usuario, moedas, cooldown) VALUES ({id}, 0, 1)"
         c = conn.cursor() 
-        c.execute(sql_insert_moeda)
+        c.execute(sql_moeda)
+        conn.commit()
+        
+        sql_warn = f"insert into bot.tbwarn (id_dc, avisos, motivos) values ({id}, 0, 'Nenhum aviso!')"
+        c = conn.cursor() 
+        c.execute(sql_warn)
         conn.commit()
 
-        embed = discord.Embed(title='LOGIN', description='ERRO', color=0x740000)
+        sql_inv = f"insert into bot.tbuserinv (id_user, id_item, quantidade) values ({id}, 7, 2)"
+        c = conn.cursor() 
+        c.execute(sql_inv)
+        conn.commit()
+
+        embed = discord.Embed(title='LOGIN', description='', color=0x740000)
         embed.add_field(name='Usuario logado com sucesso! Já pode começar usando o ``!daily``', value=f'ID do usuario: {userid}', inline=False)
         await ctx.message.reply(embed=embed)
 
@@ -125,6 +201,23 @@ async def help(ctx):
     embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
     await author.send(embed=embed)
 
+players = {}
+
+@bot.command()
+async def entrar(ctx):
+    # Verifica se o autor do comando está em uma chamada de voz
+    if ctx.author.voice is None:
+        await ctx.send("Você não está em uma chamada de voz!")
+        return
+
+    canal = ctx.author.voice.channel
+
+    if ctx.voice_client is not None:
+        await ctx.voice_client.move_to(canal)
+    else:
+        await canal.connect()
+
+    await ctx.send(f"Conectado em {canal.name}")
 
 @bot.group()
 async def shop(ctx):
@@ -146,6 +239,150 @@ async def off(ctx):
     await ctx.message.reply(f'A ``Loja`` foi bloqueada. Reinicie o bot para desbloquear!')
 
 @shop.command()
+async def usar(ctx, item, qtd):
+    global conn 
+    sql = f"SELECT bot.tbuserinv "
+
+
+
+    await ctx.message.reply(f"Você usou {qtd} {item}")
+
+@shop.command()
+async def vender(ctx, item, qtd):
+
+
+    await ctx.message.reply(f"Você vendeu {qtd} de {item}")
+
+@shop.command()
+async def roleta(ctx):
+    global conn
+    user = ctx.author.id
+    sql  = f"""
+        select
+        u.id,
+        if(UNIX_TIMESTAMP(current_date) - m.cooldown < 604800, 1, 0),
+        m.cooldown
+        from bot.tbuser u
+        join bot.cooldown m on m.id_usuario = u.id
+        where u.id_discord = {user}
+    """
+    c = conn.cursor() 
+    c.execute(sql)
+    a = c.fetchall()
+    id = a[0][0]
+    resgatado = a[0][1]
+    if resgatado == 1:
+        embed = discord.Embed(title='Já deu por hoje...', description='Semana que vem tem mais', color=0x740000)
+        embed.add_field(name=f'Você já resgatou presente!! Sinto muito...', value='', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
+        return
+
+    sql = f"""
+        update 
+        bot.cooldown     
+        set cooldown = '{(mktime(datetime.now().timetuple()))}'
+        where id_usuario = {id}
+    """
+
+    c = conn.cursor()
+    c.execute(sql)
+    conn.commit()
+
+    sorte = random.randint(1, 4)
+    print(sorte)
+    if sorte == 1:
+        item = random.randint(1, 35)
+        print(item)
+        sql = f"SELECT id, nome, preco FROM bot.tbitens WHERE id = '{item}'"
+        c = conn.cursor() 
+        c.execute(sql)
+        r = c.fetchall()
+        id = r[0][0]
+        nome = r[0][1]
+        preco = r[0][2]
+
+        sql = f"select id, id_discord from bot.tbuser where id_discord = {ctx.author.id}"
+
+        c = conn.cursor() 
+        c.execute(sql)
+        s = c.fetchall()
+
+        id = s[0][0]
+
+        sql = f"select moedas from bot.tbmoeda where id_usuario = {id}"
+
+
+        c = conn.cursor() 
+        c.execute(sql)
+        a = c.fetchall()
+        moeda_a = a[0][0]
+
+        sql =  f"""
+            update 
+            bot.tbmoeda     
+            set moedas = {moeda_a + preco}
+            where id_usuario = {id}
+        """
+
+        c = conn.cursor() 
+        c.execute(sql)
+        conn.commit()
+        embed = discord.Embed(title='ROLETA', description='Item!', color=0x740000)
+        embed.add_field(name=f'Parabéns! Você recebeu a quantidade de moedas do item ``{nome}``, fique a vontade para compra-lo ou comprar outra coisa!', value=f'Valor do item: {preco}\nSuas moedas: {preco + moeda_a}', inline=False)
+        await ctx.message.reply(embed=embed)
+        
+    if sorte == 2: 
+        moedas = random.randint(50, 501)
+        sql = f"select id, id_discord from bot.tbuser where id_discord = {ctx.author.id}"
+
+        c = conn.cursor() 
+        c.execute(sql)
+        s = c.fetchall()
+
+        id = s[0][0]
+
+        sql = f"select moedas from bot.tbmoeda where id_usuario = {id}"
+
+
+        c = conn.cursor() 
+        c.execute(sql)
+        a = c.fetchall()
+        moeda_a = a[0][0]
+
+        sql =  f"""
+            update 
+            bot.tbmoeda     
+            set moedas = {moeda_a + moedas}
+            where id_usuario = {id}
+        """
+
+        c = conn.cursor() 
+        c.execute(sql)
+        conn.commit()
+
+        embed = discord.Embed(title='ROLETA', description='Moedas!', color=0x740000)
+        embed.add_field(name=f'Parabéns! Você recebeu {moedas} moedas!', value=f'Agora possui um total de {moeda_a + moedas}', inline=False)
+        await ctx.message.reply(embed=embed)
+
+    if sorte == 3:
+        embed = discord.Embed(title='ROLETA', description='Que azar!!', color=0x740000)
+        embed.add_field(name='Você infelizmente não recebeu nada... Tente novamente na proxima semana!', value='', inline=False)
+        await ctx.message.reply(embed=embed)
+
+@shop.command()
+async def rolreset(ctx):
+    sql = """
+        update 
+        bot.cooldown    
+        set cooldown = 1
+        """
+    c = conn.cursor() 
+    c.execute(sql)
+    conn.commit()
+    await ctx.message.reply("Roleta GERAL resetada!")
+
+@shop.command()
 async def ver(ctx):
     global conn
     sql = """
@@ -158,6 +395,7 @@ async def ver(ctx):
         from bot.tbitens i
         where i.ativo = 1
     """ 
+
     c = conn.cursor() 
     c.execute(sql)
     r = c.fetchall()
@@ -200,6 +438,7 @@ async def tr(ctx, transf, user2):
         embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
         await ctx.message.reply(embed=embed)
         return 
+    
     sql = f""" 
         select  
         m.moedas,
@@ -398,7 +637,7 @@ async def add(ctx, nome=None, preco=None, estoque=None, desc=None, value=None):
     c.execute(sql)
     conn.commit()
     
-    await ctx.message.reply('Item adicionado')
+    await ctx.message.reply(f'Item ``{nome}`` adicionado')
 
     
 @bot.command()
@@ -557,7 +796,7 @@ async def daily(ctx):
         return
 
     moedas = r[0][0]
-    daily = random.randrange(5,51)
+    daily = random.randrange(10, 101)
     moedasDaily = moedas + daily
 
 
@@ -653,12 +892,12 @@ gifs_beijos = [
 ]
 
 @bot.command()
-async def calc(ctx, *, expression):
+async def calc(ctx, expression):
     try:
         result = eval(expression)
         await ctx.send(f"{expression} = {result}")
-    except Exception as e:
-        print(f"Erro ao calcular: {e}")
+    except Exception as erro:
+        print(f"Erro ao calcular: {erro}")
 
 @bot.command()
 async def beijo(ctx, member: discord.Member=None):
@@ -727,31 +966,14 @@ async def banana(ctx, channel_name=None):
 
     await ctx.channel.delete()
 
-    new_channel = await category.create_text_channel(channel_name)
-
-casais = {}
-    
+    await category.create_text_channel(channel_name)
 
 @bot.command()
-async def casar(ctx, pessoa: discord.Member):
+async def tst(ctx, amor):
+    userid = ctx.author.id
 
-    if ctx.author in casais:
-        await ctx.send(f"Você já está casado com {pessoa}!!! Tá maluco?? Use ``!divorciar`` caso não queira mais...")
-
-    elif pessoa in casais.values():
-        await ctx.send("A pessoa que você deseja casar já está casada! Safadinho")
-    else:
-        casais[ctx.author] = pessoa
-        await ctx.message.reply(f"Hmmm casalzinho novo! :3\n{ctx.author.mention} e {pessoa.mention} estão casados agora!")
-
-@bot.command()
-async def divorciar(ctx):
-
-    if ctx.author in casais:
-        ex_parceiro = casais.pop(ctx.author)
-        await ctx.send(f"{ctx.author.mention} e {ex_parceiro.mention} estão divorciados agora...")
-    else:
-        await ctx.send("Você não está casado!")
+    mor = amor.replace('<', '').replace('@', '').replace('>', '')
+    await ctx.send(f"<@{mor}>\n Seu ID: {userid}")
 
 @bot.command()
 @commands.has_permissions(administrator=True) 
@@ -1675,5 +1897,20 @@ async def emoji(ctx, emoji_name):
 async def remover(ctx, comando):
     bot.remove_command(f'{comando}')
     await ctx.message.reply(f'``!{comando}`` foi removido!')
+
+@bot.command()
+async def calendario(ctx):
+    aa = 2023
+    mm = 10
+    embed = discord.Embed(
+        title='Esse mês!',
+        description=f'{calendar.month(aa, mm)}',
+        color=discord.Color.red()
+        )
+    await ctx.message.reply(embed=embed)
+
+
+    
+
 
 bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G5GE_Y.INjo5BbjUAqDZo0Gt5b36ENsP7g_KxZEUZxGtg')
