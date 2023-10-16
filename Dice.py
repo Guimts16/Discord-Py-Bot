@@ -35,20 +35,15 @@ async def on_ready():
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!ajuda"))
 
 @bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-
-    content = message.content.lower()
-    if content != content.lower():
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
         embed = discord.Embed(
-            title='Opa! Algo deu errado..',
-            description=f'Deu algum probleminha ai! Tente usar !ajuda {message.author.mention}.',
+            title='Erro de Comando',
+            description=f'O comando `{ctx.message.content}` não foi encontrado. Tente usar `!ajuda`!',
             color=discord.Color.red()
         )
-        await message.channel.send(embed=embed)
-
-    await bot.process_commands(message)
+        await ctx.message.reply(embed=embed)
+        print(f'Erro durante a execucao do comando: {error}')
 
 @bot.command()
 async def ping(ctx):
@@ -63,69 +58,171 @@ async def ping(ctx):
     await asyncio.sleep(0.5)
     await mensagem1.edit(content=f'PING: {latency:.1f}ms')
 
-
 @bot.command()
-async def profile(ctx):
+async def turnos(ctx):
     global conn
-    sql = f"SELECT id, id_discord FROM bot.tbuser WHERE id_discord = {ctx.author.id}"
+    sql = f"""
+        SELECT iduser, dado FROM bot.tbturnos
+        ORDER BY dado DESC;
+        """
     c = conn.cursor() 
     c.execute(sql)
     r = c.fetchall()
-
-    embed = discord.Embed(title='Perfil', description=f'{ctx.author.mention}', color=0x740000)
     if len(r) > 0:
+        await ctx.message.reply("> Segue a ordem abaixo:")
+        for tupla in r:
+            await ctx.send(f'> - Nome: <@{tupla[0]}>, Dado: {tupla[1]}')
             
-        for palavra in r:
-            sql = f"""
-                select
-                u.id_discord, 
-                m.moedas
-                from bot.tbuser u
-                join bot.tbmoeda m on m.id_usuario = u.id
-                where u.id_discord = {ctx.author.id}"""
-            c = conn.cursor() 
-            c.execute(sql)
-            h = c.fetchall()
-            embed.add_field(name='Login: Online', value=f'- ID: {palavra[1]}', inline=False)
-            embed.add_field(name=f'Moedas: ', value=f'- {h[0][1]}', inline=False)
-
-            sql = f"select u.id from bot.tbuser u where u.id_discord = '{ctx.author.id}'"
-            c = conn.cursor()
-            c.execute(sql)
-            rato = c.fetchall()
-            c.close()
-            ba = rato[0][0]
-            sql = f"""
-            select 
-            (select u.id from bot.tbuser u where u.id_discord = '{ctx.author.id}') as id_user,
-            (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn,
-            (select a.motivos from bot.tbwarn a where a.id_dc = '{ba}') as motivo
-            """
-            c = conn.cursor()
-            c.execute(sql)
-            he = c.fetchall()
-            c.close()            
-            embed.add_field(name=f'Avisos:', value=f'- {he[0][1]}\n- Motivo recente: {he[0][2]}', inline=False)
 
     else:
+        await ctx.message.reply("Nenhum turno adicionado ainda! Use ``!ord`` para adicionar novos turnos")
 
-        embed.add_field(name='Login: Offline', value=f'Caso queria logar use ``!login @{ctx.author.name}``', inline=False)
 
-    if len(ctx.author.roles) == 1:
-        embed.add_field(name=f'Cargos:', value='- Nenhum cargo', inline=False)
+@bot.command()
+async def ord(ctx):
+    global conn
+    dadin = random.randint(1, 21)
+    author = ctx.author.id
+    sql = f"insert into bot.tbturnos (iduser, dado) values ({author}, {dadin})"
+    c = conn.cursor() 
+    c.execute(sql)
+    conn.commit()
+    await ctx.send(f'Okay! Seu número da sorte foi... {dadin}')
+    return
+        
+
+@bot.command()
+async def turndel(ctx):
+    sql = "delete from bot.tbturnos"
+    c = conn.cursor() 
+    c.execute(sql)
+    conn.commit()
+    await ctx.message.reply("Turnos resetados!")
+
+@bot.group()
+async def profile(ctx, de=None):
+    if de is None:
+        global conn
+        sql = f"SELECT id, id_discord FROM bot.tbuser WHERE id_discord = {ctx.author.id}"
+        c = conn.cursor() 
+        c.execute(sql)
+        r = c.fetchall()
+
+        embed = discord.Embed(title='Perfil', description=f'{ctx.author.mention}', color=0x740000)
+        if len(r) > 0:
+                
+            for palavra in r:
+                sql = f"""
+                    select
+                    u.id_discord, 
+                    m.moedas
+                    from bot.tbuser u
+                    join bot.tbmoeda m on m.id_usuario = u.id
+                    where u.id_discord = {ctx.author.id}"""
+                c = conn.cursor() 
+                c.execute(sql)
+                h = c.fetchall()
+                embed.add_field(name='Login: Online', value=f'- ID: {palavra[1]}', inline=False)
+                embed.add_field(name=f'Moedas: ', value=f'- {h[0][1]}', inline=False)
+
+                sql = f"select u.id from bot.tbuser u where u.id_discord = '{ctx.author.id}'"
+                c = conn.cursor()
+                c.execute(sql)
+                rato = c.fetchall()
+                c.close()
+                ba = rato[0][0]
+                sql = f"""
+                select 
+                (select u.id from bot.tbuser u where u.id_discord = '{ctx.author.id}') as id_user,
+                (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn,
+                (select a.motivos from bot.tbwarn a where a.id_dc = '{ba}') as motivo
+                """
+                c = conn.cursor()
+                c.execute(sql)
+                he = c.fetchall()
+                c.close()            
+                embed.add_field(name=f'Avisos:', value=f'- {he[0][1]}\n- Motivo recente: {he[0][2]}', inline=False)
+
+        else:
+
+            embed.add_field(name='Login: Offline', value=f'Caso queria logar use ``!login @{ctx.author.name}``', inline=False)
+
+        if len(ctx.author.roles) == 1:
+            embed.add_field(name=f'Cargos:', value='- Nenhum cargo', inline=False)
+        else:
+            roles = [role.name for role in ctx.author.roles[1:]] 
+            roles_text = ', '.join(roles)
+            embed.add_field(name=f'Cargos:\n- {roles_text}', value=f'', inline=False)
+        
+        criado = ctx.author.created_at.strftime("%d de %B de %Y")
+
+        embed.add_field(name=f'No discord desde:', value=f'- {criado}', inline=False)
+
+        embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜', value=f'', inline=False)
+
+        await ctx.send(embed=embed)
+        return
     else:
-        roles = [role.name for role in ctx.author.roles[1:]] 
-        roles_text = ', '.join(roles)
-        embed.add_field(name=f'Cargos:\n- {roles_text}', value=f'', inline=False)
-    
-    criado = ctx.author.created_at.strftime("%d de %B de %Y")
+        deid = de.replace('<', '').replace('@', '').replace('>', '')
+        sql = f"SELECT id, id_discord FROM bot.tbuser WHERE id_discord = {deid}"
+        c = conn.cursor() 
+        c.execute(sql)
+        r = c.fetchall()
 
-    embed.add_field(name=f'No discord desde:', value=f'- {criado}', inline=False)
+        embed = discord.Embed(title='Perfil', description=f'{de}', color=0x740000)
+        if len(r) > 0:
+                
+            for palavra in r:
+                sql = f"""
+                    select
+                    u.id_discord, 
+                    m.moedas
+                    from bot.tbuser u
+                    join bot.tbmoeda m on m.id_usuario = u.id
+                    where u.id_discord = {deid}"""
+                c = conn.cursor() 
+                c.execute(sql)
+                h = c.fetchall()
+                embed.add_field(name='Login: Online', value=f'- ID: {palavra[1]}', inline=False)
+                embed.add_field(name=f'Moedas: ', value=f'- {h[0][1]}', inline=False)
 
-    embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜', value=f'', inline=False)
+                sql = f"select u.id from bot.tbuser u where u.id_discord = '{deid}'"
+                c = conn.cursor()
+                c.execute(sql)
+                rato = c.fetchall()
+                c.close()
+                ba = rato[0][0]
+                sql = f"""
+                select 
+                (select u.id from bot.tbuser u where u.id_discord = '{deid}') as id_user,
+                (select a.avisos from bot.tbwarn a where a.id_dc = '{ba}') as warn,
+                (select a.motivos from bot.tbwarn a where a.id_dc = '{ba}') as motivo
+                """
+                c = conn.cursor()
+                c.execute(sql)
+                he = c.fetchall()
+                c.close()            
+                embed.add_field(name=f'Avisos:', value=f'- {he[0][1]}\n- Motivo recente: {he[0][2]}', inline=False)
 
-    await ctx.send(embed=embed)
+        else:
 
+            embed.add_field(name='Login: Offline', value=f'Caso queria logar use ``!login @{de.name}``', inline=False)
+
+        if len(ctx.author.roles) == 1:
+            embed.add_field(name=f'Cargos:', value='- Nenhum cargo', inline=False)
+        else:
+            roles = [role.name for role in ctx.author.roles[1:]] 
+            roles_text = ', '.join(roles)
+            embed.add_field(name=f'Cargos:\n- {roles_text}', value=f'', inline=False)
+        
+        criado = ctx.author.created_at.strftime("%d de %B de %Y")
+
+        embed.add_field(name=f'No discord desde:', value=f'- {criado}', inline=False)
+
+        embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜', value=f'', inline=False)
+
+        await ctx.send(embed=embed)
+        return
 
 
 @bot.command()
@@ -180,28 +277,29 @@ async def login(ctx, user=None):
 
 @bot.command()
 async def help(ctx):
-    author = ctx.message.author
-    embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-    embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
-    embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
-    embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
-    embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
-    embed.add_field(name='!embed <send> ou <info>', value='Pra ficar fofo', inline=False)
-    embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
-    embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
-    embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
-    embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
-    embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
-    embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
-    embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
-    embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
-    embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
-    embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
-    embed.add_field(name='!shop', value='Disponivel apenas para os meus RPGs', inline=False)
-    embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-    await author.send(embed=embed)
+    await ctx.message.reply("Peço desculpas, o comando ``!help`` e ``ajuda`` estão em manutenção. Caso haja alguma dúvida, consulte meu criador: <@617362818299199498>")
 
-players = {}
+#    author = ctx.message.author
+#    embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
+#    embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
+#    embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
+#    embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
+#    embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+#    embed.add_field(name='!embed <send> ou <info>', value='Pra ficar fofo', inline=False)
+#    embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
+#    embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
+#    embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
+#    embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
+#    embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
+#    embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
+#    embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
+#    embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
+#    embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
+#    embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
+#    embed.add_field(name='!shop', value='Disponivel apenas para os meus RPGs', inline=False)
+#    embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+#    await author.send(embed=embed)
+
 
 @bot.command()
 async def entrar(ctx):
@@ -238,20 +336,127 @@ async def off(ctx):
     shop.remove_command('buy')
     await ctx.message.reply(f'A ``Loja`` foi bloqueada. Reinicie o bot para desbloquear!')
 
-@shop.command()
-async def usar(ctx, item, qtd):
-    global conn 
-    sql = f"SELECT bot.tbuserinv "
+@shop.command() 
+async def usar(ctx, item=None, qtd=None): 
+    if item or qtd is None:
+        embed = discord.Embed(title='USO', description='', color=0x740000)
+        embed.add_field(name=f'Forneça um item e uma quantidade por favor!', value=f'Nesse formato, por exemplo: ``!shop usar Poçãoc 1``', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.') 
+        await ctx.message.reply(embed=embed)
+        return
+    global conn  
+    sql = f"SELECT id FROM bot.tbuser WHERE id_discord = {ctx.author.id}"
+     
+    c = conn.cursor()  
+    c.execute(sql) 
+    ar = c.fetchall()
+    id = ar[0][0]
 
+    sql = f"""
+        SELECT
+        i.nome,
+        i.id
+        from bot.tbitens i
+        where i.nome = '{item}'
+        """
+    
+    c = conn.cursor()  
+    c.execute(sql) 
+    a = c.fetchall()
+    nome = a[0][0]
+    id_item = a[0][1]
 
+    if nome:
+        sql = f"select id, id_user, id_item, quantidade from bot.tbuserinv where id_item = {id_item} and id_user = {id}"
 
-    await ctx.message.reply(f"Você usou {qtd} {item}")
+        c = conn.cursor() 
+        c.execute(sql)
+        r = c.fetchall()
+        quanti = r[0][3]
+        idd = r[0][2]
+        if quanti:
+
+            if quanti > 0:
+                sql = f"""update bot.tbuserinv set quantidade = {int(quanti) - int(qtd)} WHERE id_user = '{id}' and id_item = {idd}"""
+                c = conn.cursor() 
+                c.execute(sql)
+                conn.commit()
+                total = int(quanti) - int(qtd)
+                embed = discord.Embed(title='USO', description='', color=0x740000)
+                embed.add_field(name=f'Você usou {qtd} de {item}!', value=f'- Agora tem: {total}', inline=False)
+                embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.') 
+        else: 
+            
+            embed = discord.Embed(title='USO', description='', color=0x740000)
+            embed.add_field(name=f'Parece que você não tem esse item. Use ``!inv ver`` para verficar!', value='', inline=False)
+            embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.') 
+    await ctx.message.reply(embed=embed)
 
 @shop.command()
 async def vender(ctx, item, qtd):
 
+    #itens da loja
+    sql = f"""
+        select
+        a.id,
+        a.preco,
+        a.nome,
+        a.estoque,
+        a.ativo
+        from bot.tbitens a
+        where nome = '{item}'"""
+    c = conn.cursor() 
+    c.execute(sql)
+    r = c.fetchall()
+    name = r[0][2]
+    preco = r[0][1]
+    sql = f"SELECT id FROM bot.tbuser WHERE id_discord = {ctx.author.id}" 
+    c = conn.cursor()  
+    c.execute(sql) 
+    ar = c.fetchall()
+    id = ar[0][0]
 
-    await ctx.message.reply(f"Você vendeu {qtd} de {item}")
+    sql = f"select quantidade from bot.tbuserinv where id_user = {id} and id_item = {r[0][0]} "
+    c = conn.cursor() 
+    c.execute(sql)
+    a = c.fetchall()
+    quantidade = a[0][0]
+    
+    if quantidade > 0:
+        sql = f"select id, id_user, id_item, quantidade from bot.tbuserinv where id_item = {r[0][0]} and id_user = {id}"
+
+        c = conn.cursor() 
+        c.execute(sql)
+        r = c.fetchall()
+        quanti = r[0][3]
+        idd = r[0][2]
+        if idd:
+            sql = f"""update bot.tbuserinv set quantidade = {int(quanti) - int(qtd)} WHERE id_user = '{id}' and id_item = {idd}"""
+            c = conn.cursor() 
+            c.execute(sql)
+            conn.commit()
+            
+            sql = f"select moedas from bot.tbmoeda where id_usuario = {id}"
+            c = conn.cursor() 
+            c.execute(sql)
+            f = c.fetchall()
+            total = f[0][0] + preco
+            sql = f"update bot.tbmoeda set moedas = {total} where id_usuario = {id}"
+            c = conn.cursor() 
+            c.execute(sql)
+            conn.commit()
+            embed = discord.Embed(title='VENDAS', description='VENDIDO', color=0x740000)
+            embed.add_field(name=f'Vendido!! Você vendeu {name} e recebeu {preco}!', value=f'Suas moedas agora: {total}', inline=False)
+            embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        else:
+            embed = discord.Embed(title='VENDAS', description='', color=0x740000)
+            embed.add_field(name=f'Parece que você não tem esse item. Use ``!inv ver`` para verficar!', value='', inline=False)
+            embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')    
+    else:
+        embed = discord.Embed(title='VENDAS', description='', color=0x740000)
+        embed.add_field(name=f'Parece que você não tem esse item. Use ``!inv ver`` para verficar!', value='', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.') 
+    await ctx.message.reply(embed=embed)
 
 @shop.command()
 async def roleta(ctx):
@@ -290,10 +495,10 @@ async def roleta(ctx):
     conn.commit()
 
     sorte = random.randint(1, 4)
-    print(sorte)
+    (sorte)
     if sorte == 1:
         item = random.randint(1, 35)
-        print(item)
+        (item)
         sql = f"SELECT id, nome, preco FROM bot.tbitens WHERE id = '{item}'"
         c = conn.cursor() 
         c.execute(sql)
@@ -405,12 +610,39 @@ async def ver(ctx):
             
         for tupla in r:
             
-            embed.add_field(name=str(tupla[4])+" - "+tupla[0]+f" - Estoque: {tupla[2]}", value=tupla[3]+f" - Preço: {tupla[1]} moedas de prata!", inline=False)
+            embed.add_field(name=str(tupla[4])+" - "f"{tupla[0]} - Estoque: {tupla[2]}", value=f"{tupla[3]} - Preço: {tupla[1]} moedas de prata!", inline=False)
 
     else:
         embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
     embed.set_footer(text='Use !buy e o número do item desejado!')
-    await ctx.send(embed=embed)
+    await ctx.message.reply(embed=embed)
+
+@shop.command()
+@commands.check(ids)
+async def clear(ctx):
+    sql = f"delete from bot.tbitens where estoque = 0 and ativo = 1"
+    c = conn.cursor() 
+    c.execute(sql)
+    conn.commit()
+    await ctx.message.reply('Todos os itens sem estoque foram retirados!')
+
+@shop.command()
+@commands.check(ids)
+async def repor(ctx, qtd=None):
+    if qtd is None:
+        embed = discord.Embed(title='Reposição', description='')
+        embed.add_field(name=f'Forneça uma quantidade para repor do estoque por favor!', value=f'Nesse formato, por exemplo: ``!shop repor 1``', inline=False)
+        embed.set_footer(text='Para mais informações, manda mensagem para o Guimts.')
+        await ctx.message.reply(embed=embed)
+        return 
+    sql = f"update bot.tbitens set estoque = {qtd} where estoque = 0 and ativo = 1"
+    c = conn.cursor() 
+    c.execute(sql)
+    conn.commit()
+
+    await ctx.message.reply('Todos os itens sem estoque foram repostos')
+
+
 
 @shop.command()
 @commands.check(ids)
@@ -689,81 +921,73 @@ async def coin(ctx, moedas, users):
 
 
 @bot.group()
-async def inv(ctx):
-    if ctx.invoked_subcommand is None:
-        await ctx.message.reply('Por favor use ``!inv ver`` para acessar seu inventario')
+async def inv(ctx, de=None):
+    if de is None:
+        user_id = ctx.author.id
 
-@inv.command()
-async def ver(ctx):
-    user_id = ctx.author.id
+        global conn
+        sql = f"""
+            select
+            u.id_discord, 
+            i.nome,
+            ui.quantidade,
+            m.moedas,
+            d.descricao
+            from bot.tbuser u
+            join bot.tbuserinv ui on ui.id_user = u.id
+            left join bot.tbitens i on i.id = ui.id_item
+            left join bot.tbitens d on i.id = d.descricao
+            join bot.tbmoeda m on m.id_usuario = u.id
+            where u.id_discord = {user_id}
+        """ 
 
-    global conn
-    sql = f"""
-        select
-        u.id_discord, 
-        i.nome,
-        ui.quantidade,
-        m.moedas,
-        d.descricao
-        from bot.tbuser u
-        join bot.tbuserinv ui on ui.id_user = u.id
-        left join bot.tbitens i on i.id = ui.id_item
-        left join bot.tbitens d on i.id = d.descricao
-        join bot.tbmoeda m on m.id_usuario = u.id
-        where u.id_discord = {user_id}
-    """ 
+        c = conn.cursor() 
+        c.execute(sql)
+        s = c.fetchall()
+        embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {ctx.author.mention}', color=0x71368A)
+        if len(s) > 0:
+                
+            for palavra in s:
+                
+                embed.add_field(name=''+f" - Item: {palavra[1]}\n", value=''+f" - Quantidade: {palavra[2]}", inline=False)
 
-    c = conn.cursor() 
-    c.execute(sql)
-    s = c.fetchall()
-    embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {ctx.author.mention}', color=0x71368A)
-    if len(s) > 0:
-            
-        for palavra in s:
-            
-            embed.add_field(name=''+f" - Item: {palavra[1]}\n", value=''+f" - Quantidade: {palavra[2]}", inline=False)
+        else:
 
+            embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
+        embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜'"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
+        await ctx.send(embed=embed)
+        return
     else:
+        sql = f"""
+            select
+            u.id_discord, 
+            i.nome,
+            ui.quantidade,
+            m.moedas,
+            d.descricao
+            from bot.tbuser u
+            join bot.tbuserinv ui on ui.id_user = u.id
+            left join bot.tbitens i on i.id = ui.id_item
+            left join bot.tbitens d on i.id = d.descricao
+            join bot.tbmoeda m on m.id_usuario = u.id
+            where u.id_discord = {de.replace('<', '').replace('@', '').replace('>', '')}
+        """ 
+        c = conn.cursor() 
+        c.execute(sql)
+        s = c.fetchall()
+        embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {de}', color=0x71368A)
+        if len(s) > 0:
+                
+            for palavra in s:
+                
+                embed.add_field(name=''+f" - Item: {palavra[1]}", value=''+f" - Quantidade: {palavra[2]}", inline=False)
 
-        embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
-    embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜'"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
-    await ctx.send(embed=embed)
-    return
+        else:
 
-@inv.command()
-async def de(ctx, user):
-
-    global conn
-    sql = f"""
-        select
-        u.id_discord, 
-        i.nome,
-        ui.quantidade,
-        m.moedas,
-        d.descricao
-        from bot.tbuser u
-        join bot.tbuserinv ui on ui.id_user = u.id
-        left join bot.tbitens i on i.id = ui.id_item
-        left join bot.tbitens d on i.id = d.descricao
-        join bot.tbmoeda m on m.id_usuario = u.id
-        where u.id_discord = {user.replace('<', '').replace('@', '').replace('>', '')}
-    """ 
-    c = conn.cursor() 
-    c.execute(sql)
-    s = c.fetchall()
-    embed = discord.Embed(title='INVENTARIO', description=f'ITENS DE {user}', color=0x71368A)
-    if len(s) > 0:
-            
-        for palavra in s:
-            
-            embed.add_field(name=''+f" - Item: {palavra[1]}", value=''+f" - Quantidade: {palavra[2]}", inline=False)
-
-    else:
-
-        embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
-    embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜'"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
-    await ctx.send(embed=embed)
-    return
+            embed.add_field(name='**NENHUM ITEM DISPONIVEL**', value='', inline=False)
+        embed.add_field(name='❛ ━━━━━━･❪ ❁ ❫ ･━━━━━━ ❜'"", value=f'- Moedas: {palavra[3]}'+f"", inline=False)
+        await ctx.send(embed=embed)
+        return
 
 
 
@@ -836,18 +1060,6 @@ async def resetdaily(ctx):
 
     await ctx.message.reply('Daily resetado!')
 
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
-        embed = discord.Embed(
-            title='Erro de Comando',
-            description=f'O comando `{ctx.message.content}` não foi encontrado. Tente usar `!ajuda`!',
-            color=discord.Color.red()
-        )
-        await ctx.message.reply(embed=embed)
-    else:
-        print(f'Erro durante a execucao do comando: {error}')
-
 ship_results = {}
     
 @bot.command()
@@ -897,7 +1109,7 @@ async def calc(ctx, expression):
         result = eval(expression)
         await ctx.send(f"{expression} = {result}")
     except Exception as erro:
-        print(f"Erro ao calcular: {erro}")
+        (f"Erro ao calcular: {erro}")
 
 @bot.command()
 async def beijo(ctx, member: discord.Member=None):
@@ -1387,25 +1599,25 @@ async def moeda(ctx):
 
 @bot.command()
 async def ajuda(ctx):
-    author = ctx.message.author
-    embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
-    embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
-    embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
-    embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
-    embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
-    embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
-    embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
-    embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
-    embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
-    embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
-    embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
-    embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
-    embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
-    embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
-    embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
-    embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
-    await author.send(embed=embed)
-
+    await ctx.message.reply("Peço desculpas, o comando ``!help`` e ``ajuda`` estão em manutenção. Caso haja alguma dúvida, consulte meu criador: <@617362818299199498>")
+#    author = ctx.message.author
+#    embed = discord.Embed(title='Ajuda', description='Aqui está a lista de comandos disponíveis:', color=0x740000)
+#    embed.add_field(name='!r <XdY>, ou !roll', value='O famoso rola um d20, rola um dado de 6 a 100 lados.', inline=False)
+#    embed.add_field(name='!escolhe (opção1) (opção2)', value='Tá em dúvida? Que tal uma ajudinha do bot!', inline=False)
+#    embed.add_field(name='!ppt <pedra,pepel ou tesoura>', value='Pedra, papel e tesoura; Envie ppt (pedra, papel ou tesoura). O bot escolhera um aleatório para ele', inline=False)
+#    embed.add_field(name='!moeda', value='Quer brincar de cara ou coroa?', inline=False)
+#    embed.add_field(name='!calc (+, -, *, **, /)', value='1 + 1 = x?', inline=False)
+#    embed.add_field(name='!contagem (iniciar)(cancelar)', value='Está com padrão de segundos, então 120 = 2m, etc. "!contagem iniciar 10"', inline=False)
+#    embed.add_field(name='!tempo', value='Parecido com !contagem, porém funciona da seguinte forma: Você ira enviar "!tempo <comando> <1s,1m,1h,1d>" e ele irá executar o comando depois do tempo determiado.', inline=False)
+#    embed.add_field(name='!forca', value='Um joguinho da forca para descontrair ia ser legal, não?', inline=False)
+#    embed.add_field(name='!cantada', value='Uma cantada pra mandar pro crush? Ou esteja se sentindo carente ksks', inline=False)
+#    embed.add_field(name='!anagrama', value='Um joguinho de anagrama, vai.', inline=False)
+#    embed.add_field(name='!ship (nome) (nome)', value='Um joguinho pra ver suas chances com a(o) crushzinho :3', inline=False)
+#    embed.add_field(name='!tapa', value='Quer dar um tapa naquela pessoa irritante?', inline=False)
+#    embed.add_field(name='!abraço', value='Retribua com um abraço para aquela pessoa especial!', inline=False)
+#    embed.add_field(name='!beijo', value='Hmm, beijinho bom..', inline=False)
+#    embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
+#    await author.send(embed=embed)
 
 @bot.command()
 @commands.has_permissions(ban_members=True)
@@ -1797,7 +2009,7 @@ async def r(ctx, dice: str):
         embed.add_field(name='!r (Quantidade de dados e Dado desejado [+/- Modificadores] ou 1d20#1d20)', value='1d20 Por exemplo!', inline=False)
         embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
         await ctx.message.reply(embed=embed)
-        print('Erro')
+        ('Erro')
 
 @bot.command()
 async def rolar(ctx, dice: str):
@@ -1848,7 +2060,7 @@ async def rolar(ctx, dice: str):
         embed.add_field(name='!r (Quantidade de dados e Dado desejado [+/- Modificadores] ou 1d20#1d20)', value='1d20 Por exemplo!', inline=False)
         embed.set_footer(text='Para mais informações, manda mensagem para o Gui aí.')
         await ctx.message.reply(embed=embed)
-        print('Erro')
+        ('Erro')
 
 
 @bot.group()
