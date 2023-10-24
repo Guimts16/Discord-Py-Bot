@@ -5,8 +5,8 @@ import random
 import asyncio
 import re
 from datetime import datetime
-import mysql.connector 
-import calendar
+import mysql.connector
+import requests
 
 
 conn = mysql.connector.connect(
@@ -57,6 +57,22 @@ async def ping(ctx):
     await mensagem1.edit(content='Calculando...')
     await asyncio.sleep(0.5)
     await mensagem1.edit(content=f'PING: {latency:.1f}ms')
+
+@bot.command()
+async def clima(ctx, cidade=None):
+    if cidade is None:
+        await ctx.message.reply("Por favor forneça uma cidade!")
+        return
+    api = "5a8be18bb18b8e07db3e330f1e4c0a96"
+    link = f"https://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={api}&lang=pt_br"
+
+    requisicao = requests.get(link)
+    requisicao_dic = requisicao.json()
+    temperatura = requisicao_dic['main']['temp'] - 273.15
+    resultado = round(temperatura, 0)
+    embed = discord.Embed(title=f'{cidade}', description='', color=0x740000)
+    embed.add_field(name=f'Temperatura de {cidade}', value=f'- {resultado}ºC', inline=False)
+    await ctx.message.reply(embed=embed)
 
 @bot.command()
 async def turnos(ctx):
@@ -2110,16 +2126,7 @@ async def remover(ctx, comando):
     bot.remove_command(f'{comando}')
     await ctx.message.reply(f'``!{comando}`` foi removido!')
 
-@bot.command()
-async def calendario(ctx):
-    aa = 2023
-    mm = 10
-    embed = discord.Embed(
-        title='Esse mês!',
-        description=f'{calendar.month(aa, mm)}',
-        color=discord.Color.red()
-        )
-    await ctx.message.reply(embed=embed)
+
 
 
     
