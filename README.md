@@ -1,1 +1,1 @@
-porno gay só aqui!!!
+Bot em python 
