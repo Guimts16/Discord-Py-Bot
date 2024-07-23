@@ -2130,6 +2130,6 @@ async def remover(ctx, comando):
 
 
     
+# ADICIONE AQUI O TOKEN
 
-
-bot.run('MTA5NjkzODU4NjU5NjcxMjYzOQ.G5GE_Y.INjo5BbjUAqDZo0Gt5b36ENsP7g_KxZEUZxGtg')
+bot.run()
